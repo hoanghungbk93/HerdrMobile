@@ -258,8 +258,15 @@ async function serviceCmd(cmd: 'install' | 'uninstall'): Promise<number> {
         console.error('Hãy chạy "install" từ file herdr-bridge đã biên dịch, không phải qua bun.');
         return 1;
       }
-      await installService();
+      const r = await installService();
       console.log(`Đã đăng ký tự khởi động: ${process.execPath} start (log: ${logPath()})`);
+      if (r.mode === 'runkey')
+        console.log('(Không có quyền admin nên dùng khoá Run của user thay cho Task Scheduler; vẫn tự chạy khi đăng nhập.)');
+      if (r.firewall === false)
+        console.log(
+          'Cảnh báo: chưa có luật tường lửa cho cổng bridge, điện thoại sẽ không kết nối được. Mở PowerShell (Admin) và chạy:\n' +
+            '  netsh advfirewall firewall add rule name=herdr-bridge dir=in action=allow protocol=TCP localport=7420 profile=any',
+        );
     } else {
       await uninstallService();
       console.log(`Đã gỡ tự khởi động. Dữ liệu trong ${DATA_DIR} được giữ nguyên.`);

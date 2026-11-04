@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -6,6 +7,13 @@ import { DATA_DIR } from '../config';
 export const LAUNCHD_LABEL = 'dev.herdr-mobile.bridge';
 export const SYSTEMD_UNIT = 'herdr-bridge.service';
 export const TASK_NAME = 'HerdrBridge';
+/** Per-user autostart; unlike an ONLOGON scheduled task it needs no admin rights. */
+export const RUN_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
+export const FIREWALL_RULE = 'herdr-bridge';
+export const firewallAddArgs = (port: number) => [
+  'advfirewall', 'firewall', 'add', 'rule', `name=${FIREWALL_RULE}`, 'dir=in', 'action=allow', 'protocol=TCP', `localport=${port}`, 'profile=any',
+];
+export const runKeyCommand = (binPath: string) => `conhost.exe --headless "${binPath}" start`;
 
 const xml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -108,6 +116,18 @@ export interface ServiceDeps {
   writeFile(p: string, content: string): Promise<void>;
   removeFile(p: string): Promise<void>;
   sleep(ms: number): Promise<void>;
+  /** Starts a process that outlives this one (Windows Run-key mode). */
+  startDetached(cmd: string, args: string[]): Promise<void>;
+  /** This process, so stopping old bridge instances never kills the installer itself. */
+  pid: number;
+  port: number;
+}
+
+export interface InstallResult {
+  /** win32 only: how autostart was registered. */
+  mode?: 'task' | 'runkey';
+  /** win32 only: whether an inbound firewall rule for the bridge port exists. */
+  firewall?: boolean;
 }
 
 export function defaultDeps(): ServiceDeps {
@@ -129,6 +149,11 @@ export function defaultDeps(): ServiceDeps {
     },
     removeFile: (p) => fs.rm(p, { force: true }),
     sleep: (ms) => Bun.sleep(ms),
+    startDetached: async (cmd, args) => {
+      spawn(cmd, args, { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+    },
+    pid: process.pid,
+    port: 7420, // the registered service always runs `start` on the default port
   };
 }
 
@@ -140,7 +165,13 @@ async function must(d: ServiceDeps, cmd: string, args: string[]): Promise<void> 
   if (code !== 0) throw new Error(`${cmd} ${args[0]} failed (exit ${code})`);
 }
 
-export async function installService(platform: string = process.platform, d: ServiceDeps = defaultDeps()): Promise<void> {
+const stopOtherInstances = (d: ServiceDeps) =>
+  d.run('taskkill', ['/F', '/FI', `PID ne ${d.pid}`, '/IM', path.win32.basename(d.binPath)]);
+
+export async function installService(
+  platform: string = process.platform,
+  d: ServiceDeps = defaultDeps(),
+): Promise<InstallResult> {
   if (platform !== 'win32') await d.ensureDir(path.dirname(d.logPath)); // launchd/systemd won't create it
   switch (platform) {
     case 'darwin': {
@@ -151,7 +182,7 @@ export async function installService(platform: string = process.platform, d: Ser
       const args = ['bootstrap', `gui/${d.uid}`, p];
       for (let i = 1; ; i++) {
         const code = await d.run('launchctl', args);
-        if (code === 0) return;
+        if (code === 0) return {};
         if (i >= BOOTSTRAP_ATTEMPTS) throw new Error(`launchctl bootstrap failed (exit ${code})`);
         await d.sleep(BOOTSTRAP_RETRY_MS);
       }
@@ -162,15 +193,29 @@ export async function installService(platform: string = process.platform, d: Ser
       await must(d, 'systemctl', ['--user', 'enable', '--now', SYSTEMD_UNIT]);
       // enable --now leaves an already-running (old) binary alone; restart so an upgrade takes effect.
       await must(d, 'systemctl', ['--user', 'restart', SYSTEMD_UNIT]);
-      return;
-    case 'win32':
-      // Stop a running (old) instance so /Run below starts the freshly installed binary; fails harmlessly if absent.
+      return {};
+    case 'win32': {
+      // Stop a running (old) instance so the freshly installed binary is the one that starts; fails harmlessly if absent.
       await d.run('schtasks', ['/End', '/TN', TASK_NAME]);
-      await must(d, 'schtasks', schtasksArgs(d.binPath, d.user));
-      // schtasks /Create defaults to a 72h time limit and battery restrictions; lift both.
-      await must(d, 'powershell', ['-NoProfile', '-Command', TASK_SETTINGS_PS]);
-      await must(d, 'schtasks', ['/Run', '/TN', TASK_NAME]);
-      return;
+      await stopOtherInstances(d);
+      let mode: InstallResult['mode'];
+      // ONLOGON tasks need admin rights ("Access is denied" otherwise): fall back to the per-user Run key.
+      if ((await d.run('schtasks', schtasksArgs(d.binPath, d.user))) === 0) {
+        // schtasks /Create defaults to a 72h time limit and battery restrictions; lift both.
+        await must(d, 'powershell', ['-NoProfile', '-Command', TASK_SETTINGS_PS]);
+        await must(d, 'schtasks', ['/Run', '/TN', TASK_NAME]);
+        await d.run('reg', ['delete', RUN_KEY, '/v', TASK_NAME, '/f']); // drop a Run-key entry from an earlier install
+        mode = 'task';
+      } else {
+        await must(d, 'reg', ['add', RUN_KEY, '/v', TASK_NAME, '/t', 'REG_SZ', '/d', runKeyCommand(d.binPath), '/f']);
+        await d.startDetached('conhost.exe', ['--headless', d.binPath, 'start']);
+        mode = 'runkey';
+      }
+      // Inbound connections over Tailscale need a firewall rule; adding one needs admin, so this may fail.
+      let firewall = (await d.run('netsh', ['advfirewall', 'firewall', 'show', 'rule', `name=${FIREWALL_RULE}`])) === 0;
+      if (!firewall) firewall = (await d.run('netsh', firewallAddArgs(d.port))) === 0;
+      return { mode, firewall };
+    }
     default:
       throw new Error(`unsupported platform: ${platform}`);
   }
@@ -191,6 +236,8 @@ export async function uninstallService(platform: string = process.platform, d: S
     case 'win32':
       await d.run('schtasks', ['/End', '/TN', TASK_NAME]);
       await d.run('schtasks', ['/Delete', '/TN', TASK_NAME, '/F']);
+      await d.run('reg', ['delete', RUN_KEY, '/v', TASK_NAME, '/f']);
+      await stopOtherInstances(d);
       return;
     default:
       throw new Error(`unsupported platform: ${platform}`);

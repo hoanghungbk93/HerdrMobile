@@ -1,8 +1,11 @@
 import { expect, test } from 'bun:test';
 import path from 'node:path';
 import {
+  firewallAddArgs,
   installService,
   launchdPlist,
+  RUN_KEY,
+  runKeyCommand,
   schtasksArgs,
   systemdUnit,
   uninstallService,
@@ -35,6 +38,9 @@ function fakeDeps(over: Partial<ServiceDeps> = {}) {
     writeFile: async (p, c) => void writes.push({ path: p, content: c }),
     removeFile: async (p) => void removed.push(p),
     sleep: async (ms) => void sleeps.push(ms),
+    startDetached: async (cmd, args) => void calls.push(['detached', cmd, ...args]),
+    pid: 4242,
+    port: 7420,
     ...over,
   };
   return { deps, calls, writes, removed, sleeps };
@@ -136,16 +142,40 @@ test('install on linux writes user unit, enables it and restarts it (picks up an
   ]);
 });
 
-test('install on win32 creates and runs the scheduled task', async () => {
+test('install on win32 (admin) creates and runs the scheduled task', async () => {
   const { deps, calls, writes } = fakeDeps({ binPath: 'C:\\x y\\hb.exe' });
-  await installService('win32', deps);
+  expect(await installService('win32', deps)).toEqual({ mode: 'task', firewall: true });
   expect(writes).toEqual([]);
   expect(calls).toEqual([
     ['schtasks', '/End', '/TN', 'HerdrBridge'], // stop an old instance (fails harmlessly on first install)
+    ['taskkill', '/F', '/FI', 'PID ne 4242', '/IM', 'hb.exe'],
     ['schtasks', ...schtasksArgs('C:\\x y\\hb.exe', 'u')],
     ['powershell', '-NoProfile', '-Command', TASK_SETTINGS_PS],
     ['schtasks', '/Run', '/TN', 'HerdrBridge'],
+    ['reg', 'delete', RUN_KEY, '/v', 'HerdrBridge', '/f'],
+    ['netsh', 'advfirewall', 'firewall', 'show', 'rule', 'name=herdr-bridge'],
   ]);
+});
+
+test('install on win32 without admin: Run key autostart, started now, firewall rule attempted', async () => {
+  const { deps, calls } = fakeDeps({
+    binPath: 'C:\\x y\\hb.exe',
+    run: async (c, a) => {
+      calls.push([c, ...a]);
+      if (c === 'schtasks' && a[0] === '/Create') return 1; // Access is denied
+      if (c === 'netsh') return 1; // no rule, and no rights to add one
+      return 0;
+    },
+  });
+  expect(await installService('win32', deps)).toEqual({ mode: 'runkey', firewall: false });
+  expect(calls.slice(2)).toEqual([
+    ['schtasks', ...schtasksArgs('C:\\x y\\hb.exe', 'u')],
+    ['reg', 'add', RUN_KEY, '/v', 'HerdrBridge', '/t', 'REG_SZ', '/d', runKeyCommand('C:\\x y\\hb.exe'), '/f'],
+    ['detached', 'conhost.exe', '--headless', 'C:\\x y\\hb.exe', 'start'],
+    ['netsh', 'advfirewall', 'firewall', 'show', 'rule', 'name=herdr-bridge'],
+    ['netsh', ...firewallAddArgs(7420)],
+  ]);
+  expect(runKeyCommand('C:\\x y\\hb.exe')).toBe('conhost.exe --headless "C:\\x y\\hb.exe" start');
 });
 
 test('uninstall removes service files but never user data', async () => {
@@ -167,6 +197,8 @@ test('uninstall removes service files but never user data', async () => {
   expect(w.calls).toEqual([
     ['schtasks', '/End', '/TN', 'HerdrBridge'],
     ['schtasks', '/Delete', '/TN', 'HerdrBridge', '/F'],
+    ['reg', 'delete', RUN_KEY, '/v', 'HerdrBridge', '/f'],
+    ['taskkill', '/F', '/FI', 'PID ne 4242', '/IM', 'herdr-bridge'],
   ]);
   for (const r of [d.removed, l.removed, w.removed]) expect(r.join()).not.toContain('/.herdr-mobile');
 });
