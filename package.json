@@ -1,0 +1,8 @@
+{
+  "name": "herdr-bridge-workspace",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "test": "pnpm -r test"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "herdr-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@herdr-mobile/protocol": "workspace:*",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/qrcode-terminal": "^0.12.2",
+    "bun-types": "^1.3.7",
+    "typescript": "^5.6.0"
+  }
+}
