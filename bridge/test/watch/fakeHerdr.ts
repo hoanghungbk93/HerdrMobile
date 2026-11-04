@@ -3,6 +3,8 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 
+import { ipcPath } from '../../src/herdr/client';
+
 export interface FakeHerdr {
   socketPath: string;
   requests: string[];
@@ -67,7 +69,7 @@ export function startFakeHerdr(subAck: (subs: any[]) => number | null = () => 0)
       }
     });
   });
-  server.listen(socketPath);
+  server.listen(ipcPath(socketPath));
   return {
     socketPath,
     requests,

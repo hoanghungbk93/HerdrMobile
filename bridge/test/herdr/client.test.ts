@@ -39,7 +39,7 @@ async function fake(onRequest: (sock: net.Socket, msg: any, conns: Map<net.Socke
     sock.on('error', () => {});
   });
   servers.push(server);
-  await new Promise<void>((r) => server.listen(path, r));
+  await new Promise<void>((r) => server.listen(ipcPath(path), r));
   const client = await HerdrClient.connect(path);
   armed = true;
   clients.push(client);
