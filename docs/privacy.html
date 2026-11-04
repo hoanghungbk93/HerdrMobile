@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacy Policy</title><link rel="stylesheet" href="style.css"></head>
+<body><main>
+<nav><a href="./">Home</a><a href="privacy.html">Privacy Policy</a><a href="#vi">Tiếng Việt</a></nav>
+<h1>Privacy Policy</h1>
+<p class="meta">Herdr Mobile · Last updated: 4 November 2026</p>
+
+<p>Herdr Mobile ("the app") is a remote control for herdr sessions running on a computer you own. This policy explains what data the app handles. In short: the developer does not collect, store or receive any of your data.</p>
+
+<h2>Data the developer collects</h2>
+<p>None. The app has no account system, no analytics, no advertising, no crash reporting and no tracking. The developer runs no server that your data passes through.</p>
+
+<h2>Data that stays between your phone and your computer</h2>
+<p>The app talks only to the herdr-bridge program that you install on your own computer, over your private Tailscale network. Through that connection the app sends and receives:</p>
+<ul>
+<li>terminal output and the text and keys you type;</li>
+<li>photos and files you choose to send to an agent; they are saved on your computer;</li>
+<li>the names of your machines, workspaces and agents.</li>
+</ul>
+<p>A pairing token for each computer is stored on your phone in the iOS Keychain. App settings and recent prompts are stored locally on your phone. Deleting the app removes them.</p>
+
+<h2>Push notifications</h2>
+<p>If you allow notifications, the app gives your computer's bridge a push token. When an agent needs approval or finishes, your bridge sends the notification through the Expo push service, which delivers it via Apple Push Notification service. A notification contains the agent and workspace name and up to one line of the agent's prompt, plus identifiers the app needs to open the right screen. Expo and Apple process this data only to deliver the notification; see the <a href="https://expo.dev/privacy">Expo privacy policy</a> and <a href="https://www.apple.com/legal/privacy/">Apple privacy policy</a>. You can turn notifications off in iOS Settings at any time.</p>
+
+<h2>Permissions</h2>
+<ul>
+<li><b>Camera</b>: to scan the pairing QR code and to take photos you choose to send to an agent.</li>
+<li><b>Photo library</b>: to pick images you choose to send to an agent.</li>
+<li><b>Notifications</b>: to alert you when an agent needs attention.</li>
+</ul>
+
+<h2>Third parties</h2>
+<p>The app connects over Tailscale, which you install and configure separately under <a href="https://tailscale.com/privacy-policy">Tailscale's own privacy policy</a>. No data is sold or shared with anyone else.</p>
+
+<h2>Children</h2>
+<p>The app is a developer tool and is not directed at children under 13.</p>
+
+<h2>Contact</h2>
+<p>Questions about this policy: open an issue at <a href="https://github.com/hoanghungbk93/HerdrMobile/issues">github.com/hoanghungbk93/HerdrMobile/issues</a>.</p>
+
+<hr>
+<section id="vi" lang="vi">
+<h1>Chính sách quyền riêng tư</h1>
+<p class="meta">Cập nhật: 4/11/2026</p>
+<p>Nhà phát triển không thu thập, lưu trữ hay nhận bất kỳ dữ liệu nào của bạn. App không có tài khoản, không phân tích hành vi, không quảng cáo, không theo dõi.</p>
+<p>App chỉ kết nối tới herdr-bridge trên máy tính của chính bạn qua mạng Tailscale riêng. Output terminal, chữ bạn gõ, ảnh và file bạn gửi chỉ đi giữa điện thoại và máy tính đó. Token ghép máy lưu trong Keychain của iPhone; cài đặt và lịch sử prompt lưu trên điện thoại, xoá app là mất.</p>
+<p>Nếu bật thông báo, bridge trên máy bạn gửi thông báo qua dịch vụ Expo Push và Apple Push Notification. Nội dung gồm tên agent, tên workspace và tối đa một dòng prompt của agent. Có thể tắt trong Cài đặt iOS.</p>
+<p>Quyền camera dùng để quét mã QR và chụp ảnh gửi agent; quyền thư viện ảnh dùng để chọn ảnh gửi agent.</p>
+<p>Liên hệ: <a href="https://github.com/hoanghungbk93/HerdrMobile/issues">GitHub Issues</a>.</p>
+</section>
+</main></body></html>
