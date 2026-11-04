@@ -8,8 +8,7 @@ Cầu nối giữa herdr trên máy tính và app điện thoại, đi qua Tails
 2. Chạy installer (cần có sẵn herdr):
    - macOS / Linux: `curl -fsSL https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.sh | sh`
      (hoặc chạy `scripts/install.sh` trong repo). Cài vào `~/.local/bin/herdr-bridge`.
-   - Windows (PowerShell): `irm https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.ps1 | iex`
-     (hoặc chạy `scripts/install.ps1` trong repo). Cài vào `%LOCALAPPDATA%\Programs\HerdrBridge\`.
+   - Windows: chưa hỗ trợ. herdr trên Windows mở Unix socket dạng file (`herdr.sock`) mà bridge (node:net) chỉ nối được named pipe; bản Windows chưa được phát hành.
    Installer tự đăng ký tự khởi động (launchd / systemd user / Task Scheduler). Chạy lại installer để nâng cấp:
    nó dừng bridge đang chạy, thay file rồi khởi động lại bản mới.
 3. Chạy `herdr-bridge pair` để hiện mã QR.
@@ -36,4 +35,4 @@ Trên Windows, tác vụ HerdrBridge chạy ẩn qua `conhost.exe --headless`; `
 ## Ghi chú kỹ thuật
 
 - herdr (0.9.3) đóng socket sau mỗi phản hồi không phải subscription; dùng kết nối mới cho mỗi request.
-- Đường dẫn named pipe của herdr trên Windows: xác nhận ở lần chạy CI Windows đầu tiên (job in kết quả `herdr session list --json`).
+- herdr trên Windows (CI 2026-11-04): `socket_path` là file `%APPDATA%\herdr\herdr.sock` (AF_UNIX), không phải named pipe. Muốn hỗ trợ Windows cần client AF_UNIX cho Windows; test tích hợp đang bỏ qua trên Windows.

@@ -69,6 +69,6 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/herdr-bridge-bun-*
+            dist/herdr-bridge-bun-darwin-*
+            dist/herdr-bridge-bun-linux-*
             scripts/install.sh
-            scripts/install.ps1

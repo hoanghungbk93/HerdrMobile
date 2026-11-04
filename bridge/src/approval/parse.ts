@@ -18,7 +18,7 @@ const OPTION = /^\s*[│ ]*[❯›>]?\s*(\d)\.\s+(.+?)\s*[│ ]*$/;
 export function parseApproval(detectionText: string): ParsedApproval {
   const clean = detectionText.replace(ANSI, '').trim();
   const hash = createHash('sha256').update(clean).digest('hex');
-  const lines = clean.split('\n').filter((l) => l.trim() !== '');
+  const lines = clean.split(/\r?\n/).filter((l) => l.trim() !== '');
   const text = lines.slice(-12).join('\n');
 
   // Last contiguous block of option lines.

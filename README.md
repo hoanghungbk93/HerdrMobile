@@ -7,7 +7,7 @@ Cầu nối giữa [herdr](https://herdr.dev) trên máy tính và app điện t
 1. Cài Tailscale trên máy tính và điện thoại, đăng nhập cùng tài khoản.
 2. Cài bridge (cần có sẵn herdr):
    - macOS / Linux: `curl -fsSL https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.sh | sh`
-   - Windows (PowerShell): `irm https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.ps1 | iex`
+   - Windows: chưa hỗ trợ (xem [bridge/README.md](bridge/README.md)).
 3. Chạy `herdr-bridge pair`, mở app Herdr trên điện thoại và quét mã QR.
 
 Chi tiết lệnh, bảo mật và ghi chú kỹ thuật: [bridge/README.md](bridge/README.md).

@@ -11,7 +11,8 @@ const xml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 
 /** PATH for the service: current PATH plus the usual herdr locations, deduped. */
 export function servicePath(current: string, home: string, sep = path.delimiter): string {
-  const extra = [path.join(home, '.local', 'bin'), '/opt/homebrew/bin', '/usr/local/bin'];
+  // launchd/systemd PATH: always POSIX, even when built or tested on Windows.
+  const extra = [path.posix.join(home, '.local', 'bin'), '/opt/homebrew/bin', '/usr/local/bin'];
   const seen = new Set<string>();
   return [...current.split(sep), ...extra].filter((x) => x && !seen.has(x) && seen.add(x)).join(sep);
 }
