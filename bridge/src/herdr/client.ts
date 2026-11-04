@@ -20,6 +20,16 @@ interface Inflight {
  * herdr closes the socket after every non-subscription response, so each
  * request uses its own short-lived connection.
  */
+/**
+ * Address to dial for a herdr `socket_path`. On Windows herdr writes only a marker file at
+ * socket_path and listens on a named pipe named after that path (interprocess
+ * GenericNamespaced), i.e. `\\.\pipe\<socket_path>`.
+ */
+export function ipcPath(socketPath: string, platform: NodeJS.Platform = process.platform): string {
+  if (platform !== 'win32' || socketPath.startsWith('\\\\.\\pipe\\')) return socketPath;
+  return `\\\\.\\pipe\\${socketPath}`;
+}
+
 export class HerdrClient {
   private counter = 0;
   private closed = false;
@@ -39,7 +49,7 @@ export class HerdrClient {
     if (this.closed) return Promise.reject(new HerdrError('closed', 'client closed'));
     const id = `b${++this.counter}`;
     return new Promise<T>((resolve, reject) => {
-      const socket = net.connect({ path: this.socketPath });
+      const socket = net.connect({ path: ipcPath(this.socketPath) });
       socket.setEncoding('utf8');
       let buf = '';
       let done = false;

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { HerdrClient, HerdrError } from '../../src/herdr/client';
+import { HerdrClient, HerdrError, ipcPath } from '../../src/herdr/client';
 
 const rand = () => Math.random().toString(36).slice(2, 10);
 const sockPath = () =>
@@ -152,5 +152,17 @@ describe('HerdrClient', () => {
     const err: any = await HerdrClient.connect(sockPath()).catch((e: any) => e);
     expect(err).toBeInstanceOf(HerdrError);
     expect(err.code).toBe('closed');
+  });
+});
+
+describe('ipcPath', () => {
+  test('unix: socket_path is dialed as-is', () => {
+    expect(ipcPath('/tmp/herdr/herdr.sock', 'darwin')).toBe('/tmp/herdr/herdr.sock');
+    expect(ipcPath('/tmp/herdr/herdr.sock', 'linux')).toBe('/tmp/herdr/herdr.sock');
+  });
+  test('windows: socket_path names a pipe in the \\\\.\\pipe\\ namespace', () => {
+    const p = 'C:\\Users\\u\\AppData\\Roaming\\herdr\\herdr.sock';
+    expect(ipcPath(p, 'win32')).toBe('\\\\.\\pipe\\C:\\Users\\u\\AppData\\Roaming\\herdr\\herdr.sock');
+    expect(ipcPath(ipcPath(p, 'win32'), 'win32')).toBe(ipcPath(p, 'win32'));
   });
 });

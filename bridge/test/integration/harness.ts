@@ -11,9 +11,7 @@ const probe = (() => {
   }
 })();
 
-// Windows: herdr listens on an AF_UNIX socket file (herdr.sock), but node:net on Windows
-// only connects to named pipes, so the bridge cannot reach herdr there yet.
-export const herdrAvailable = probe && process.platform !== 'win32';
+export const herdrAvailable = probe;
 export const describeHerdr = describe.skipIf(!herdrAvailable);
 
 async function run(args: string[]): Promise<void> {

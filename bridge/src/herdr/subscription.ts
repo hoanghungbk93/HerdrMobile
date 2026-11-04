@@ -1,5 +1,7 @@
 import net from 'node:net';
 
+import { ipcPath } from './client';
+
 export type SubscriptionEnd = 'events_lost' | 'closed' | 'rejected';
 
 /**
@@ -16,7 +18,7 @@ export function subscribe(
   ackTimeoutMs = 10000,
 ): Promise<{ close(): void }> {
   return new Promise((resolve, reject) => {
-    const socket = net.connect({ path: socketPath });
+    const socket = net.connect({ path: ipcPath(socketPath) });
     socket.setEncoding('utf8');
     let buf = '';
     let acked = false;
