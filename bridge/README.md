@@ -8,7 +8,8 @@ Cầu nối giữa herdr trên máy tính và app điện thoại, đi qua Tails
 2. Chạy installer (cần có sẵn herdr):
    - macOS / Linux: `curl -fsSL https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.sh | sh`
      (hoặc chạy `scripts/install.sh` trong repo). Cài vào `~/.local/bin/herdr-bridge`.
-   - Windows: chưa hỗ trợ. herdr trên Windows mở Unix socket dạng file (`herdr.sock`) mà bridge (node:net) chỉ nối được named pipe; bản Windows chưa được phát hành.
+   - Windows (PowerShell): `irm https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.ps1 | iex`
+     (hoặc chạy `scripts/install.ps1` trong repo). Cài vào `%LOCALAPPDATA%\Programs\HerdrBridge\`.
    Installer tự đăng ký tự khởi động (launchd / systemd user / Task Scheduler). Chạy lại installer để nâng cấp:
    nó dừng bridge đang chạy, thay file rồi khởi động lại bản mới.
 3. Chạy `herdr-bridge pair` để hiện mã QR.
@@ -21,7 +22,7 @@ Biến môi trường của installer: `HERDR_BRIDGE_REPO`, `HERDR_BRIDGE_BASE_U
 `start`, `pair`, `devices`, `revoke <id>`, `status`, `install`, `uninstall` (thêm `--port N` nếu đổi cổng, mặc định 7420).
 `uninstall` chỉ gỡ tự khởi động, giữ nguyên dữ liệu trong `~/.herdr-mobile/` (Windows: `%USERPROFILE%\.herdr-mobile\`).
 Khi chạy nền (không có terminal), `start` ghi log vào `bridge.log` trong thư mục dữ liệu trên mọi hệ điều hành.
-Trên Windows, tác vụ HerdrBridge chạy ẩn qua `conhost.exe --headless`; `install` còn gỡ giới hạn thời gian 72h và điều kiện pin, và đặt tự khởi động lại mỗi phút nếu lỗi (PowerShell `Set-ScheduledTask`); phần này sẽ được xác nhận ở lần chạy CI Windows đầu tiên.
+Trên Windows, tác vụ HerdrBridge chạy ẩn qua `conhost.exe --headless`; `install` còn gỡ giới hạn thời gian 72h và điều kiện pin, và đặt tự khởi động lại mỗi phút nếu lỗi (PowerShell `Set-ScheduledTask`).
 
 ## Bảo mật
 
@@ -35,4 +36,4 @@ Trên Windows, tác vụ HerdrBridge chạy ẩn qua `conhost.exe --headless`; `
 ## Ghi chú kỹ thuật
 
 - herdr (0.9.3) đóng socket sau mỗi phản hồi không phải subscription; dùng kết nối mới cho mỗi request.
-- herdr trên Windows (CI 2026-11-04): `socket_path` là file `%APPDATA%\herdr\herdr.sock` (AF_UNIX), không phải named pipe. Muốn hỗ trợ Windows cần client AF_UNIX cho Windows; test tích hợp đang bỏ qua trên Windows.
+- herdr trên Windows: `socket_path` (`%APPDATA%\herdr\herdr.sock`) chỉ là file đánh dấu; herdr lắng nghe named pipe `\\.\pipe\<socket_path>` (crate interprocess, GenericNamespaced). Bridge tự đổi sang tên pipe (`ipcPath`). CI chạy test tích hợp với herdr thật và thử cài qua `install.ps1` + Task Scheduler trên Windows.

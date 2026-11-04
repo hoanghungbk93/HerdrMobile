@@ -44,6 +44,25 @@ jobs:
       - run: pnpm -r typecheck
       # Integration tests (bridge/test/integration) run automatically when herdr is on PATH.
       - run: pnpm -r test
+      - name: Windows install smoke (install.ps1 + Task Scheduler + status + pair)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          bun build bridge/src/cli.ts --compile --target=bun-windows-x64 --outfile dist/herdr-bridge-bun-windows-x64.exe
+          $env:HERDR_BRIDGE_BASE_URL = ([Uri](Resolve-Path dist).Path).AbsoluteUri
+          & ./scripts/install.ps1
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\HerdrBridge\herdr-bridge.exe'
+          $ok = $false
+          for ($i = 0; $i -lt 30 -and -not $ok; $i++) {
+            Start-Sleep -Seconds 1
+            $out = (& $exe status 2>&1 | Out-String)
+            if ($LASTEXITCODE -eq 0) { $ok = $true }
+          }
+          Write-Host $out
+          if (-not $ok) { Get-Content (Join-Path $env:USERPROFILE '.herdr-mobile\bridge.log') -ErrorAction SilentlyContinue; throw 'bridge did not come up via Task Scheduler' }
+          & $exe pair
+          if ($LASTEXITCODE -ne 0) { throw "pair failed ($LASTEXITCODE)" }
+          & $exe uninstall
       - name: Print herdr socket / named-pipe path (record in bridge/README.md)
         if: always()
         continue-on-error: true
@@ -69,6 +88,6 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/herdr-bridge-bun-darwin-*
-            dist/herdr-bridge-bun-linux-*
+            dist/herdr-bridge-bun-*
             scripts/install.sh
+            scripts/install.ps1
