@@ -50,3 +50,7 @@ Lưu trong `settings.json` ở thư mục dữ liệu.
 - `config host <ip>`: địa chỉ ghi vào mã QR (mặc định là IP Tailscale của máy). `config host auto` để bỏ.
 
 Các route `/local/*` vẫn chỉ nhận từ loopback và cần khoá trong `local.key`; thiết bị vẫn phải ghép bằng mã.
+
+## Cuộn lịch sử từ điện thoại
+
+Trên màn terminal, kéo xuống khi đang ở đầu trang (hoặc kéo lên/xuống khi đang cuộn) để xem lại lịch sử. Lần cuộn đầu, bridge mở `herdr terminal session control` ở khổ màn hình điện thoại: pane co lại cho chữ to và xuống dòng vừa điện thoại, máy tính cũng thấy pane ở khổ đó trong lúc cuộn, rồi bridge cuộn bằng `pane.scroll`. Khi điện thoại về cuối và để yên 15 giây, rời pane hoặc mất kết nối, bridge trả pane về đúng kích thước cũ (đọc từ tty của shell trong pane) rồi thả quyền điều khiển. Trên Windows chạy trực tiếp (không có tty), bridge chỉ cuộn, không đổi kích thước.

@@ -9,6 +9,7 @@ import type { DeviceStore } from '../auth/store';
 import { HerdrError, type HerdrClient } from '../herdr/client';
 import { observeWithCli, type ObserveFn } from '../live/observer';
 import { PaneStreamer } from '../live/paneStreamer';
+import { openControllerCli, PhoneView, type PhoneViewDeps, readSizeVia } from '../live/phoneView';
 import type { PushMessage, sendExpoPush } from '../notify/expoPush';
 import type { NotifyPolicy } from '../notify/policy';
 import { UploadTooLarge, type UploadStore } from '../uploads/store';
@@ -26,6 +27,8 @@ export interface AppDeps {
   machineName: string;
   /** Admin key every /local/* call must send in X-Herdr-Local-Key (written to DATA_DIR/local.key by `start`). */
   localKey: string;
+  /** Phone-size scrolling (default: real herdr controller + stty); tests inject fakes. */
+  phoneView?: Partial<Pick<PhoneViewDeps, 'readSize' | 'openController' | 'idleMs' | 'abandonMs'>>;
   /** Live pane change feed (default: `herdr terminal session observe`); tests inject a fake. */
   observe?: ObserveFn;
   /** Per-file upload limit; tests inject a tiny one. */
@@ -118,6 +121,31 @@ export function createApp(deps: AppDeps): App {
   const uploadLimit = deps.uploadLimitBytes ?? 100 * 1024 * 1024;
   const streamer = new PaneStreamer((s) => hub.client(s), 6, { observe: deps.observe ?? observeWithCli });
   const sockets = new Set<ServerWebSocket<WsData>>();
+  /** Panes each socket scrolled, so leaving or disconnecting gives them back to the computer. */
+  const scrolledBy = new Map<string, Set<string>>();
+  const phone = new PhoneView({
+    getClient: (s) => hub.client(s),
+    readSize: deps.phoneView?.readSize ?? readSizeVia((s) => hub.client(s)),
+    openController: deps.phoneView?.openController ?? openControllerCli,
+    idleMs: deps.phoneView?.idleMs,
+    abandonMs: deps.phoneView?.abandonMs,
+    poke: (s, p) => streamer.poke(s, p),
+    onState: (st) => {
+      const msg = JSON.stringify({ t: 'scroll', ...st } satisfies ServerMsg);
+      for (const ws of sockets) ws.send(msg);
+    },
+  });
+  const leaveScrolled = (wsId: string, session?: string, paneId?: string) => {
+    const keys = scrolledBy.get(wsId);
+    if (!keys) return;
+    for (const k of [...keys]) {
+      const [s, p] = k.split('\n') as [string, string];
+      if (session !== undefined && (s !== session || p !== paneId)) continue;
+      keys.delete(k);
+      void phone.leave(s, p);
+    }
+    if (keys.size === 0) scrolledBy.delete(wsId);
+  };
   const socketsPerDevice = new Map<string, number>();
   const foreground = new Map<string, Foreground>();
   /** Hash already answered per "<session>:<paneId>", until the pane's status moves again. */
@@ -465,7 +493,23 @@ export function createApp(deps: AppDeps): App {
         const m = msg as unknown as ClientMsg;
         if ((m.t === 'watch' || m.t === 'unwatch') && isStr(msg.session) && isStr(msg.paneId)) {
           if (m.t === 'watch') streamer.watch(ws.data.id, m.session, m.paneId, (f) => send(ws, f));
-          else streamer.unwatch(ws.data.id, m.session, m.paneId);
+          else {
+            streamer.unwatch(ws.data.id, m.session, m.paneId);
+            leaveScrolled(ws.data.id, m.session, m.paneId);
+          }
+        } else if (
+          m.t === 'scroll' &&
+          isStr(msg.session) &&
+          isStr(msg.paneId) &&
+          typeof msg.lines === 'number' &&
+          Number.isFinite(msg.lines) &&
+          typeof msg.cols === 'number' &&
+          typeof msg.rows === 'number'
+        ) {
+          const key = `${m.session}\n${m.paneId}`;
+          if (!scrolledBy.has(ws.data.id)) scrolledBy.set(ws.data.id, new Set());
+          scrolledBy.get(ws.data.id)!.add(key);
+          void phone.scroll(m.session, m.paneId, m.lines, m.cols, m.rows, msg.toBottom === true);
         } else if (
           m.t === 'foreground' &&
           (msg.session === null || isStr(msg.session)) &&
@@ -479,6 +523,7 @@ export function createApp(deps: AppDeps): App {
       close(ws) {
         sockets.delete(ws);
         streamer.unwatch(ws.data.id);
+        leaveScrolled(ws.data.id);
         const left = (socketsPerDevice.get(ws.data.deviceId) ?? 1) - 1;
         if (left > 0) socketsPerDevice.set(ws.data.deviceId, left);
         else {
@@ -493,6 +538,7 @@ export function createApp(deps: AppDeps): App {
       hub.off('snapshot', onSnapshot);
       hub.off('transition', onTransition);
       streamer.stop();
+      void phone.stop();
     },
   };
 }

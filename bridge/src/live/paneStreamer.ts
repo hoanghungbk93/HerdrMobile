@@ -96,6 +96,15 @@ export class PaneStreamer {
     if (this.panes.size === 0) this.stop();
   }
 
+  /** Re-read a watched pane now (its scroll position or size changed). */
+  poke(session: string, paneId: string): void {
+    const key = `${session}\n${paneId}`;
+    const w = this.panes.get(key);
+    if (!w) return;
+    w.dirty = true;
+    this.read(key, w, true);
+  }
+
   stop(): void {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;

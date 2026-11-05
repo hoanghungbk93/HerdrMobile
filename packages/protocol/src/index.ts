@@ -35,12 +35,19 @@ export type ServerMsg =
   | { t: 'session'; snapshot: SessionSnapshot }
   | { t: 'status'; session: string; paneId: string; status: AgentStatus; at: number }
   | { t: 'frame'; session: string; paneId: string; revision: number; text: string }
+  /** Scroll position of a pane the phone scrolled; `phone`: the pane is resized to the phone's screen. */
+  | { t: 'scroll'; session: string; paneId: string; offset: number; max: number; phone: boolean }
   | { t: 'error'; code: string; message: string };
 
 export type ClientMsg =
   | { t: 'watch'; session: string; paneId: string }
   | { t: 'unwatch'; session: string; paneId: string }
-  | { t: 'foreground'; session: string | null; paneId: string | null };
+  | { t: 'foreground'; session: string | null; paneId: string | null }
+  /**
+   * Scroll a pane into its history (`lines` > 0 = up, < 0 = down; `toBottom` jumps back). The first scroll resizes
+   * the pane to `cols` x `rows` (the phone's screen) until the phone goes back to the bottom and stays idle.
+   */
+  | { t: 'scroll'; session: string; paneId: string; lines: number; cols: number; rows: number; toBottom?: boolean };
 
 export interface PushPrefs {
   private: boolean;
