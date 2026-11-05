@@ -49,7 +49,9 @@ export type ClientMsg =
    */
   | { t: 'scroll'; session: string; paneId: string; lines: number; cols: number; rows: number; toBottom?: boolean }
   /** Hold the pane at the phone's size (`on`) until turned off or the phone leaves; off = give it back now. */
-  | { t: 'fit'; session: string; paneId: string; on: boolean; cols: number; rows: number };
+  | { t: 'fit'; session: string; paneId: string; on: boolean; cols: number; rows: number }
+  /** A tap on the pane at a zero-based cell; herdr delivers it only to apps that enabled mouse reporting. */
+  | { t: 'click'; session: string; paneId: string; col: number; row: number };
 
 export interface PushPrefs {
   private: boolean;

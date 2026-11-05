@@ -153,6 +153,39 @@ export class PhoneView {
     this.d.onState({ session: h.session, paneId: h.paneId, offset: h.offset, max: h.max, phone: !!h.controller });
   }
 
+  /**
+   * A left click at a zero-based cell, through herdr's controller (`terminal.mouse`): herdr encodes it for the app's
+   * mouse mode and drops it when the app has none, so a plain shell never gets stray input. With the pane held we
+   * reuse that controller; otherwise a short-lived one at the pane's own size (no visible resize).
+   */
+  click(session: string, paneId: string, col: number, row: number): Promise<void> {
+    const key = `${session}\n${paneId}`;
+    const c = Math.max(0, Math.round(col));
+    const r = Math.max(0, Math.round(row));
+    const events = [
+      { type: 'terminal.mouse', action: 'down', button: 'left', column: c, row: r },
+      { type: 'terminal.mouse', action: 'up', button: 'left', column: c, row: r },
+    ];
+    const h = this.held.get(key);
+    if (h) {
+      h.lastAt = this.now();
+      h.chain = h.chain.then(() => {
+        if (h.controller) for (const e of events) h.controller.send(e);
+      });
+      return h.chain;
+    }
+    return (async () => {
+      const orig = await this.d.readSize(session, paneId);
+      if (!orig) return; // unknown size (native Windows): no click rather than a resize we can't undo
+      const ctl = this.d.openController(session, paneId, orig, () => {});
+      if (!ctl) return;
+      for (const e of events) ctl.send(e);
+      ctl.send({ type: 'terminal.resize', cols: orig.cols, rows: orig.rows });
+      ctl.send({ type: 'terminal.release' });
+      ctl.close();
+    })().catch((e) => this.log(`[phone] click ${paneId} failed: ${e instanceof Error ? e.message : e}`));
+  }
+
   /** The phone no longer watches this pane (or any pane, without paneId). */
   leave(session?: string, paneId?: string): Promise<void> {
     const jobs: Promise<void>[] = [];

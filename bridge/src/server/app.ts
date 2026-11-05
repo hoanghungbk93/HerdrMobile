@@ -523,6 +523,16 @@ export function createApp(deps: AppDeps): App {
           scrolledBy.get(ws.data.id)!.add(key);
           void phone.fit(m.session, m.paneId, m.on, m.cols, m.rows);
         } else if (
+          m.t === 'click' &&
+          isStr(msg.session) &&
+          isStr(msg.paneId) &&
+          typeof msg.col === 'number' &&
+          Number.isFinite(msg.col) &&
+          typeof msg.row === 'number' &&
+          Number.isFinite(msg.row)
+        ) {
+          void phone.click(m.session, m.paneId, m.col, m.row);
+        } else if (
           m.t === 'foreground' &&
           (msg.session === null || isStr(msg.session)) &&
           (msg.paneId === null || isStr(msg.paneId))

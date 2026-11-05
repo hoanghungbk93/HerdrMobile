@@ -155,3 +155,31 @@ test('an app that owns scrolling (no herdr scrollback) gets one wheel notch per 
   expect(scrollCmds()).toEqual(Array(4).fill({ type: 'terminal.scroll', direction: 'up', lines: 1 }));
   await pv.stop();
 });
+
+test('click reuses the held controller', async () => {
+  const { pv, controllers } = setup();
+  await pv.fit('s', 'p', true, 45, 30);
+  await pv.click('s', 'p', 3, 7);
+  expect(controllers.length).toBe(1);
+  expect(controllers[0]!.sent.slice(-2)).toEqual([
+    { type: 'terminal.mouse', action: 'down', button: 'left', column: 3, row: 7 },
+    { type: 'terminal.mouse', action: 'up', button: 'left', column: 3, row: 7 },
+  ]);
+  await pv.stop();
+});
+
+test('click on a pane not held: a short controller at the pane size, released at once', async () => {
+  const { pv, controllers } = setup();
+  await pv.click('s', 'p', 1, 2);
+  expect(controllers.length).toBe(1);
+  expect(controllers[0]!.size).toEqual({ cols: 119, rows: 40 });
+  expect(controllers[0]!.sent.slice(-2)).toEqual([{ type: 'terminal.resize', cols: 119, rows: 40 }, { type: 'terminal.release' }]);
+  expect(controllers[0]!.closed).toBe(true);
+  expect(pv.isHeld('s', 'p')).toBe(false);
+});
+
+test('click with unknown pane size does nothing', async () => {
+  const { pv, controllers } = setup({ size: null });
+  await pv.click('s', 'p', 1, 2);
+  expect(controllers.length).toBe(0);
+});
