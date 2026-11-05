@@ -37,3 +37,7 @@ Trên Windows, tác vụ HerdrBridge chạy ẩn qua `conhost.exe --headless`; `
 
 - herdr (0.9.3) đóng socket sau mỗi phản hồi không phải subscription; dùng kết nối mới cho mỗi request.
 - herdr trên Windows: `socket_path` (`%APPDATA%\herdr\herdr.sock`) chỉ là file đánh dấu; herdr lắng nghe named pipe `\\.\pipe\<socket_path>` (crate interprocess, GenericNamespaced). Bridge tự đổi sang tên pipe (`ipcPath`). CI chạy test tích hợp với herdr thật và thử cài qua `install.ps1` + Task Scheduler trên Windows.
+
+## Màn hình trực tiếp
+
+Với herdr 0.9.2 trở lên, bridge mở `herdr terminal session observe` (chỉ đọc, không đổi kích thước pane) cho mỗi pane đang có điện thoại xem. herdr báo màn hình đổi thì bridge đọc lại ngay (`pane.read`), pane đứng yên thì gần như không tốn gì. herdr cũ hơn, hoặc khi observer không chạy được, bridge quay về đọc 6 lần/giây và thử lại observer sau 30 giây.

@@ -7,6 +7,7 @@ import { LOCAL_KEY_HEADER, localKeyMatches } from '../auth/localKey';
 import type { Pairing } from '../auth/pairing';
 import type { DeviceStore } from '../auth/store';
 import { HerdrError, type HerdrClient } from '../herdr/client';
+import { observeWithCli, type ObserveFn } from '../live/observer';
 import { PaneStreamer } from '../live/paneStreamer';
 import type { PushMessage, sendExpoPush } from '../notify/expoPush';
 import type { NotifyPolicy } from '../notify/policy';
@@ -25,6 +26,8 @@ export interface AppDeps {
   machineName: string;
   /** Admin key every /local/* call must send in X-Herdr-Local-Key (written to DATA_DIR/local.key by `start`). */
   localKey: string;
+  /** Live pane change feed (default: `herdr terminal session observe`); tests inject a fake. */
+  observe?: ObserveFn;
   /** Per-file upload limit; tests inject a tiny one. */
   uploadLimitBytes?: number;
   /** Test seam: remote address of a request (default: server.requestIP). */
@@ -113,7 +116,7 @@ const lastNonEmptyLine = (text: string) =>
 export function createApp(deps: AppDeps): App {
   const { hub, devices, pairing, uploads, policy } = deps;
   const uploadLimit = deps.uploadLimitBytes ?? 100 * 1024 * 1024;
-  const streamer = new PaneStreamer((s) => hub.client(s));
+  const streamer = new PaneStreamer((s) => hub.client(s), 6, { observe: deps.observe ?? observeWithCli });
   const sockets = new Set<ServerWebSocket<WsData>>();
   const socketsPerDevice = new Map<string, number>();
   const foreground = new Map<string, Foreground>();
