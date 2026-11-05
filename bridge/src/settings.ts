@@ -11,6 +11,8 @@ import { DATA_DIR } from './config';
 export interface Settings {
   listen?: 'tailscale' | 'all';
   host?: string;
+  /** Live Activity relay URL; 'off' disables Live Activities. */
+  relay?: string;
 }
 
 const file = (dir: string) => path.join(dir, 'settings.json');
@@ -21,6 +23,7 @@ export function readSettings(dir = DATA_DIR): Settings {
     const s: Settings = {};
     if (raw?.listen === 'all' || raw?.listen === 'tailscale') s.listen = raw.listen;
     if (typeof raw?.host === 'string' && raw.host.trim()) s.host = raw.host.trim();
+    if (typeof raw?.relay === 'string' && (raw.relay === 'off' || /^https?:\/\/\S+$/.test(raw.relay))) s.relay = raw.relay;
     return s;
   } catch {
     return {};

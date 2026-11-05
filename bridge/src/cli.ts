@@ -11,6 +11,7 @@ import { Binder, tailscaleAddresses } from './net/tailscale';
 import { sendExpoPush } from './notify/expoPush';
 import { NotifyPolicy } from './notify/policy';
 import { createApp, type App } from './server/app';
+import { DEFAULT_RELAY_URL, httpRelay } from './notify/liveActivity';
 import { installService, uninstallService } from './service/units';
 import { readSettings, validHost, writeSettings } from './settings';
 import { UploadStore } from './uploads/store';
@@ -73,7 +74,10 @@ async function start(port: number): Promise<void> {
   const hub = new Hub();
   const devices = new DeviceStore(DATA_DIR);
   const binder: { current: Binder | null } = { current: null };
+  const settings = readSettings();
+  const relayUrl = process.env.HERDR_RELAY_URL ?? settings.relay ?? DEFAULT_RELAY_URL;
   const app = createApp({
+    relay: relayUrl === 'off' ? null : httpRelay(relayUrl),
     hub,
     devices,
     pairing: new Pairing(devices),
@@ -84,7 +88,6 @@ async function start(port: number): Promise<void> {
     localKey,
     statusInfo: () => ({ port, tailscale: tailscaleAddresses(), listening: binder.current?.hosts() ?? [] }),
   });
-  const settings = readSettings();
   const b = new Binder((host) => serveOn(host, port, app), { listenAll: settings.listen === 'all' });
   binder.current = b;
   try {

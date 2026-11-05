@@ -12,6 +12,7 @@ import { PaneStreamer } from '../live/paneStreamer';
 import { openControllerCli, PhoneView, type PhoneViewDeps, readSizeVia } from '../live/phoneView';
 import type { PushMessage, sendExpoPush } from '../notify/expoPush';
 import type { NotifyPolicy } from '../notify/policy';
+import { LiveActivities, type Relay } from '../notify/liveActivity';
 import { UploadTooLarge, type UploadStore } from '../uploads/store';
 import type { Hub } from '../watch/hub';
 import type { Transition } from '../watch/statusTracker';
@@ -35,6 +36,10 @@ export interface AppDeps {
   uploadLimitBytes?: number;
   /** Test seam: remote address of a request (default: server.requestIP). */
   remoteAddress?: (req: Request, server: Server<WsData>) => string | null;
+  /** Live Activity relay (null/absent = off). */
+  relay?: Relay | null;
+  /** Live Activity timing overrides for tests. */
+  liveActivity?: { debounceMs?: number; endAfterMs?: number };
   /** Extra fields for GET /local/status (tailscale addresses, port). */
   statusInfo?: () => Record<string, unknown>;
 }
@@ -163,9 +168,13 @@ export function createApp(deps: AppDeps): App {
 
   // ---- hub wiring -------------------------------------------------------
 
-  const onSnapshot = (snapshot: SessionSnapshot) => broadcast({ t: 'session', snapshot });
+  const onSnapshot = (snapshot: SessionSnapshot) => {
+    broadcast({ t: 'session', snapshot });
+    activities?.refresh();
+  };
   const onTransition = (t: Transition) => {
     answered.delete(`${t.session}:${t.paneId}`);
+    activities?.refresh(t.to === 'blocked');
     broadcast({ t: 'status', session: t.session, paneId: t.paneId, status: t.to, at: t.at });
     notify(t).catch((e) => console.error('[app] push failed:', e instanceof Error ? e.message : e));
   };
@@ -229,6 +238,7 @@ export function createApp(deps: AppDeps): App {
     for (const { msg, tokens } of groups.values()) {
       const r = await deps.push(tokens, msg);
       if (r.failedBatches > 0) console.warn(`[app] ${r.failedBatches} expo push batch(es) failed`);
+      else console.info(`[push] ${msg.data.kind} ${t.session}:${t.paneId} -> ${tokens.length} device(s)`);
       for (const tok of r.invalidTokens) {
         for (const d of devices.list()) if (d.pushToken === tok) devices.update(d.id, { pushToken: null });
       }
@@ -242,6 +252,15 @@ export function createApp(deps: AppDeps): App {
   };
   cleanup();
   const cleanupTimer = setInterval(cleanup, CLEANUP_EVERY_MS);
+  const activities = deps.relay
+    ? new LiveActivities({
+        devices,
+        relay: deps.relay,
+        machineName: deps.machineName,
+        sessions: () => hub.sessions(),
+        ...deps.liveActivity,
+      })
+    : null;
 
   // ---- routes -----------------------------------------------------------
 
@@ -256,7 +275,7 @@ export function createApp(deps: AppDeps): App {
   async function putDevice(req: Request, deviceId: string): Promise<Response> {
     const b = await readBody(req);
     if (!b) return fail(400, 'bad_request');
-    const patch: { name?: string; pushToken?: string | null; prefs?: PushPrefs } = {};
+    const patch: Parameters<DeviceStore['update']>[1] = {};
     if (b.name !== undefined) {
       if (!isStr(b.name) || b.name.trim() === '') return fail(400, 'bad_request', 'name');
       patch.name = b.name.trim();
@@ -269,7 +288,15 @@ export function createApp(deps: AppDeps): App {
       if (!isPrefs(b.prefs)) return fail(400, 'bad_request', 'prefs');
       patch.prefs = { private: b.prefs.private, mutedSessions: b.prefs.mutedSessions, mutedPanes: b.prefs.mutedPanes };
     }
+    if (b.liveActivity !== undefined) {
+      const la = b.liveActivity;
+      if (la === null) patch.liveActivity = null;
+      else if (isObj(la) && isStr(la.startToken) && /^[0-9a-f]{32,400}$/i.test(la.startToken) && (la.env === 'production' || la.env === 'sandbox')) {
+        patch.liveActivity = { startToken: la.startToken, env: la.env };
+      } else return fail(400, 'bad_request', 'liveActivity');
+    }
     devices.update(deviceId, patch);
+    if (patch.liveActivity) activities?.refresh();
     return noContent();
   }
 
@@ -557,6 +584,7 @@ export function createApp(deps: AppDeps): App {
 
     close() {
       clearInterval(cleanupTimer);
+      activities?.close();
       hub.off('snapshot', onSnapshot);
       hub.off('transition', onTransition);
       streamer.stop();

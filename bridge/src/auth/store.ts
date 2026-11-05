@@ -9,8 +9,23 @@ export interface Device {
   tokenHash: string;
   pushToken: string | null;
   prefs: PushPrefs;
+  /** ActivityKit push-to-start token for Live Activities (iOS 17.2+), with the APNs environment of the build. */
+  liveActivity?: LiveActivityReg | null;
+  /** The Live Activity this bridge started on the phone (its broadcast channel). */
+  activity?: ActivityRef | null;
   createdAt: number;
   lastSeenAt: number;
+}
+
+export type ApnsEnv = 'production' | 'sandbox';
+export interface LiveActivityReg {
+  startToken: string;
+  env: ApnsEnv;
+}
+export interface ActivityRef {
+  channelId: string;
+  env: ApnsEnv;
+  startedAt: number;
 }
 
 const sha256hex = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -51,12 +66,14 @@ export class DeviceStore {
     return found;
   }
 
-  update(id: string, patch: Partial<Pick<Device, 'name' | 'pushToken' | 'prefs'>>): void {
+  update(id: string, patch: Partial<Pick<Device, 'name' | 'pushToken' | 'prefs' | 'liveActivity' | 'activity'>>): void {
     const d = this.devices.find((x) => x.id === id);
     if (!d) return;
     if (patch.name !== undefined) d.name = patch.name;
     if (patch.pushToken !== undefined) d.pushToken = patch.pushToken;
     if (patch.prefs !== undefined) d.prefs = patch.prefs;
+    if (patch.liveActivity !== undefined) d.liveActivity = patch.liveActivity;
+    if (patch.activity !== undefined) d.activity = patch.activity;
     this.save();
   }
 

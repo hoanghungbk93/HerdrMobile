@@ -197,6 +197,18 @@ test('PUT /device updates whitelisted fields and validates', async () => {
   expect((await call(c, token, 'PUT', '/device', { name: 5 })).status).toBe(400);
 });
 
+test('PUT /device stores the Live Activity start token', async () => {
+  const c = setup();
+  const { token, deviceId } = await pair(c);
+  const liveActivity = { startToken: 'ab'.repeat(32), env: 'production' as const };
+  expect((await call(c, token, 'PUT', '/device', { liveActivity })).status).toBe(204);
+  expect(c.devices.list().find((x) => x.id === deviceId)!.liveActivity).toEqual(liveActivity);
+  expect((await call(c, token, 'PUT', '/device', { liveActivity: { startToken: 'zz', env: 'production' } })).status).toBe(400);
+  expect((await call(c, token, 'PUT', '/device', { liveActivity: { startToken: 'ab'.repeat(32), env: 'dev' } })).status).toBe(400);
+  expect((await call(c, token, 'PUT', '/device', { liveActivity: null })).status).toBe(204);
+  expect(c.devices.list().find((x) => x.id === deviceId)!.liveActivity).toBeNull();
+});
+
 test('rpc rejects method outside allowlist', async () => {
   const c = setup();
   const { token } = await pair(c);

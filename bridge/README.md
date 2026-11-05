@@ -48,6 +48,11 @@ Lưu trong `settings.json` ở thư mục dữ liệu.
 
 - `config listen all`: nghe trên `0.0.0.0` thay vì 127.0.0.1 + địa chỉ Tailscale. Dùng khi địa chỉ Tailscale nằm ở máy khác (WSL chế độ NAT, Windows chuyển cổng vào). `config listen tailscale` để quay lại. Cần khởi động lại bridge (`herdr-bridge install`).
 - `config host <ip>`: địa chỉ ghi vào mã QR (mặc định là IP Tailscale của máy). `config host auto` để bỏ.
+- `relay` (sửa tay trong `settings.json`, hoặc biến môi trường `HERDR_RELAY_URL`): địa chỉ relay Live Activity, mặc định `https://herdr-relay.itmf.com.vn`; `"off"` để tắt.
+
+## Live Activity (màn khoá / Dynamic Island, iOS 18+)
+
+Khi có agent đang chạy hoặc chờ duyệt, bridge bật Live Activity trên điện thoại (kể cả khi app đang tắt), cập nhật khi trạng thái đổi, và kết thúc 3 phút sau khi mọi agent rảnh. Gửi APNs cần khoá của nhà phát triển app, nên bridge đi qua một relay nhỏ giữ khoá đó. Relay chỉ nhận trạng thái tóm tắt: số agent đang chạy / chờ, tên agent, tên tab (ẩn tên tab khi bật chế độ riêng tư), tên máy; không bao giờ nhận nội dung terminal. Điện thoại tắt thông báo cho máy nào thì máy đó cũng không bật Live Activity.
 
 Các route `/local/*` vẫn chỉ nhận từ loopback và cần khoá trong `local.key`; thiết bị vẫn phải ghép bằng mã.
 
