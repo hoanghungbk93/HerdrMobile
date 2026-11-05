@@ -41,3 +41,12 @@ Trên Windows, tác vụ HerdrBridge chạy ẩn qua `conhost.exe --headless`; `
 ## Màn hình trực tiếp
 
 Với herdr 0.9.2 trở lên, bridge mở `herdr terminal session observe` (chỉ đọc, không đổi kích thước pane) cho mỗi pane đang có điện thoại xem. herdr báo màn hình đổi thì bridge đọc lại ngay (`pane.read`), pane đứng yên thì gần như không tốn gì. herdr cũ hơn, hoặc khi observer không chạy được, bridge quay về đọc 6 lần/giây và thử lại observer sau 30 giây.
+
+## Cấu hình (`herdr-bridge config`)
+
+Lưu trong `settings.json` ở thư mục dữ liệu.
+
+- `config listen all`: nghe trên `0.0.0.0` thay vì 127.0.0.1 + địa chỉ Tailscale. Dùng khi địa chỉ Tailscale nằm ở máy khác (WSL chế độ NAT, Windows chuyển cổng vào). `config listen tailscale` để quay lại. Cần khởi động lại bridge (`herdr-bridge install`).
+- `config host <ip>`: địa chỉ ghi vào mã QR (mặc định là IP Tailscale của máy). `config host auto` để bỏ.
+
+Các route `/local/*` vẫn chỉ nhận từ loopback và cần khoá trong `local.key`; thiết bị vẫn phải ghép bằng mã.

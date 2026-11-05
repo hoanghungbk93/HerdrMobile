@@ -59,3 +59,19 @@ test('a failing bind is retried on the next check', async () => {
   await Bun.sleep(40);
   expect(started).toEqual(['127.0.0.1', '100.88.1.2']);
 });
+
+test('listenAll binds 0.0.0.0 only and ignores Tailscale addresses', async () => {
+  const started: string[] = [];
+  const b = new Binder(
+    (host) => {
+      started.push(host);
+      return { stop: () => {} };
+    },
+    { recheckMs: 10, log: () => {}, getAddrs: () => ['100.88.1.2'], listenAll: true },
+  );
+  timers.push(b);
+  b.start();
+  await Bun.sleep(40);
+  expect(started).toEqual(['0.0.0.0']);
+  expect(b.hosts()).toEqual(['0.0.0.0']);
+});

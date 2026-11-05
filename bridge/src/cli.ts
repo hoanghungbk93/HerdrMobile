@@ -12,6 +12,7 @@ import { sendExpoPush } from './notify/expoPush';
 import { NotifyPolicy } from './notify/policy';
 import { createApp, type App } from './server/app';
 import { installService, uninstallService } from './service/units';
+import { readSettings, validHost, writeSettings } from './settings';
 import { UploadStore } from './uploads/store';
 import { Hub } from './watch/hub';
 
@@ -83,20 +84,22 @@ async function start(port: number): Promise<void> {
     localKey,
     statusInfo: () => ({ port, tailscale: tailscaleAddresses(), listening: binder.current?.hosts() ?? [] }),
   });
-  const b = new Binder((host) => serveOn(host, port, app));
+  const settings = readSettings();
+  const b = new Binder((host) => serveOn(host, port, app), { listenAll: settings.listen === 'all' });
   binder.current = b;
   try {
     b.start();
   } catch (e) {
     app.close();
-    console.error(`Cannot listen on 127.0.0.1:${port}: ${e instanceof Error ? e.message : e}`);
+    console.error(`Cannot listen on ${settings.listen === 'all' ? '0.0.0.0' : '127.0.0.1'}:${port}: ${e instanceof Error ? e.message : e}`);
     process.exit(1);
   }
   // Only once we own the port: a second `start` that fails to bind must not replace the running daemon's key.
   writeLocalKey(DATA_DIR, localKey);
   hub.start();
   console.log(`herdr-bridge "${machineName}" listening on port ${port} (${b.hosts().join(', ')}); data in ${DATA_DIR}`);
-  if (tailscaleAddresses().length === 0) console.log('Tailscale not up: serving on localhost only, re-checking every 10 s');
+  if (settings.listen !== 'all' && tailscaleAddresses().length === 0)
+    console.log('Tailscale not up: serving on localhost only, re-checking every 10 s');
 
   const shutdown = () => {
     b.stop();
@@ -168,12 +171,15 @@ async function pair(port: number): Promise<number> {
     return 1;
   }
   const p = (await res.json()) as { code: string; secret: string; machineName: string };
-  const host = tailscaleAddresses().find((a) => !a.includes(':'));
+  const settings = readSettings();
+  const host = settings.host ?? tailscaleAddresses().find((a) => !a.includes(':'));
   if (!host) {
     console.warn('Cảnh báo: không thấy địa chỉ Tailscale, dùng 127.0.0.1 (điện thoại sẽ không kết nối được).');
     if (isWsl()) {
-      console.warn('Đang chạy trong WSL: cần bật networkingMode=mirrored để WSL thấy địa chỉ Tailscale của Windows.');
-      console.warn('Xem: https://hoanghungbk93.github.io/HerdrMobile/#wsl');
+      console.warn('Đang chạy trong WSL: cho bridge nghe trên mọi địa chỉ và ghi địa chỉ Tailscale của Windows vào mã QR:');
+      console.warn('  herdr-bridge config listen all');
+      console.warn('  herdr-bridge config host <IP Tailscale của Windows, vd 100.x.y.z>');
+      console.warn('rồi chuyển cổng 7420 từ Windows vào WSL. Xem: https://hoanghungbk93.github.io/HerdrMobile/#wsl');
     }
   }
   const url = pairUrl(host ?? '127.0.0.1', port, p.secret, p.machineName);
@@ -257,6 +263,34 @@ async function status(port: number): Promise<number> {
   return 0;
 }
 
+function configCmd(args: string[]): number {
+  const s = readSettings();
+  const [key, value] = args;
+  if (!key) {
+    console.log(`listen: ${s.listen ?? 'tailscale'}  (tailscale = 127.0.0.1 + địa chỉ Tailscale; all = 0.0.0.0)`);
+    console.log(`host:   ${s.host ?? 'auto'}  (địa chỉ ghi vào mã QR; auto = IP Tailscale của máy này)`);
+    return 0;
+  }
+  if (key === 'listen' && (value === 'all' || value === 'tailscale')) {
+    writeSettings({ ...s, listen: value === 'all' ? 'all' : undefined });
+    console.log(`Đã đặt listen = ${value}. Khởi động lại bridge để áp dụng: herdr-bridge install`);
+    if (value === 'all')
+      console.log('Lưu ý: bridge nhận kết nối từ mọi mạng máy này nối tới; tự giới hạn bằng tường lửa nếu cần.');
+    return 0;
+  }
+  if (key === 'host' && value) {
+    if (value === 'auto') writeSettings({ ...s, host: undefined });
+    else if (!validHost(value)) {
+      console.error(`Địa chỉ không hợp lệ: ${value}`);
+      return 2;
+    } else writeSettings({ ...s, host: value });
+    console.log(`Đã đặt host = ${value}. Chạy lại herdr-bridge pair để lấy mã QR mới.`);
+    return 0;
+  }
+  console.error('Usage: herdr-bridge config [listen all|tailscale] [host <ip>|auto]');
+  return 2;
+}
+
 async function serviceCmd(cmd: 'install' | 'uninstall'): Promise<number> {
   try {
     if (cmd === 'install') {
@@ -304,11 +338,13 @@ export async function main(argv: string[]): Promise<number | 'running'> {
       return revoke(a.port, a.rest[0]);
     case 'status':
       return status(a.port);
+    case 'config':
+      return configCmd(a.rest);
     case 'install':
     case 'uninstall':
       return serviceCmd(a.cmd);
     default:
-      console.error('Usage: herdr-bridge <start|pair|devices|revoke <id>|status|install|uninstall> [--port N]');
+      console.error('Usage: herdr-bridge <start|pair|devices|revoke <id>|status|config|install|uninstall> [--port N]');
       return 2;
   }
 }

@@ -2,7 +2,7 @@
 # herdr-bridge installer (macOS / Linux).
 # Env: HERDR_BRIDGE_REPO (default hoanghungbk93/HerdrMobile), HERDR_BRIDGE_BASE_URL (override download dir),
 #      HERDR_BRIDGE_PREFIX (install dir, default ~/.local/bin), HERDR_BRIDGE_SKIP_SERVICE=1 (skip autostart),
-#      HERDR_BRIDGE_SKIP_WSL=1 (inside WSL: do not touch Windows settings).
+#      HERDR_BRIDGE_SKIP_WSL=1 (inside WSL: skip the NAT-mode setup).
 set -eu
 
 REPO="${HERDR_BRIDGE_REPO:-hoanghungbk93/HerdrMobile}"
@@ -20,8 +20,8 @@ case "$(uname -m)" in
   *) echo "Kiến trúc không hỗ trợ: $(uname -m)" >&2; exit 1 ;;
 esac
 
-# --- WSL: the phone reaches the bridge through the Windows Tailscale address. WSL only sees that address
-# in mirrored networking mode, and Hyper-V's firewall must let inbound connections into WSL.
+# --- WSL (NAT mode): the phone dials the Windows Tailscale address, which WSL cannot see. The bridge then
+# listens on 0.0.0.0 and the user forwards the port on Windows (portproxy + firewall); we only print the commands.
 is_wsl() { [ -n "${WSL_DISTRO_NAME:-}" ] || grep -qi microsoft /proc/version 2>/dev/null; }
 has_tailscale_ip() { ip -4 -o addr 2>/dev/null | grep -Eq 'inet 100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.'; }
 PS_EXE=""
@@ -36,81 +36,28 @@ find_powershell() {
   [ -n "$PS_EXE" ] && "$PS_EXE" -NoProfile -NonInteractive -Command 'exit 0' >/dev/null 2>&1
 }
 ps_run() { "$PS_EXE" -NoProfile -NonInteractive -Command "$1" 2>/dev/null | tr -d '\r'; }
-wsl_manual() {
-  echo "     Làm tay trên Windows để điện thoại kết nối được tới bridge trong WSL:"
-  echo "     1. Thêm vào %USERPROFILE%\\.wslconfig hai dòng:  [wsl2]  và  networkingMode=mirrored"
-  echo "     2. PowerShell (Run as Administrator):"
-  echo "        Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow"
-  echo "     3. PowerShell: wsl --shutdown, mở lại WSL rồi chạy herdr-bridge pair"
-}
-WSL_RESTART=0
+WSL_NAT=0
+WIN_TS_IP=""
 
+# Read-only: never changes Windows settings.
 wsl_setup() {
-  if ! find_powershell; then
-    if has_tailscale_ip; then
-      echo "WSL: đã thấy địa chỉ Tailscale trong WSL. Không gọi được PowerShell nên không kiểm tra được tường lửa Hyper-V."
-      echo "     Nếu điện thoại không kết nối được, trong PowerShell (Run as Administrator) chạy:"
-      echo "     Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow"
-    else
-      echo "WSL: không gọi được powershell.exe (WSL đang tắt interop với Windows), chưa tự cấu hình được."
-      wsl_manual
-    fi
+  if has_tailscale_ip; then
+    echo "WSL: thấy địa chỉ Tailscale ngay trong WSL, dùng chế độ bình thường."
     return 0
   fi
-
-  # A bridge installed on Windows itself would hold port 7420 on the same address.
-  winexe="$(ps_run '$p = Join-Path $env:LOCALAPPDATA "Programs\HerdrBridge\herdr-bridge.exe"; if (Test-Path $p) { $p }')"
-  if [ -n "$winexe" ]; then
-    echo "WSL: gỡ bridge bản Windows ($winexe) để nhường cổng 7420 cho bridge trong WSL."
-    ps_run "& '$winexe' uninstall; Get-Process -Name herdr-bridge -ErrorAction SilentlyContinue | Stop-Process -Force" >/dev/null || true
+  WSL_NAT=1
+  "$dest" config listen all >/dev/null
+  echo "WSL: bridge sẽ nghe trên 0.0.0.0 (cổng 7420)."
+  if find_powershell; then
+    WIN_TS_IP="$(ps_run "(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { \$_.IPAddress -match '^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.' } | Select-Object -First 1).IPAddress")"
+    winexe="$(ps_run '$p = Join-Path $env:LOCALAPPDATA "Programs\HerdrBridge\herdr-bridge.exe"; if (Test-Path $p) { $p }')"
+    [ -n "$winexe" ] && echo "WSL: Windows cũng đang cài herdr-bridge ($winexe); nó sẽ tranh cổng 7420. Gỡ trong PowerShell: herdr-bridge uninstall"
   fi
-
-  if has_tailscale_ip; then
-    echo "WSL: đã thấy địa chỉ Tailscale trong WSL (mirrored networking đang bật)."
+  if [ -n "$WIN_TS_IP" ]; then
+    "$dest" config host "$WIN_TS_IP" >/dev/null
+    echo "WSL: mã QR sẽ dùng địa chỉ Tailscale của Windows: $WIN_TS_IP"
   else
-    build="$(ps_run '[Environment]::OSVersion.Version.Build')"
-    if [ -n "$build" ] && [ "$build" -lt 22621 ] 2>/dev/null; then
-      echo "WSL: Windows build $build chưa hỗ trợ mirrored networking (cần Windows 11 22H2+)."
-      echo "     Điện thoại sẽ không kết nối được tới bridge trong WSL. Cài bridge bản Windows thay thế nếu herdr chạy trên Windows."
-      return 0
-    fi
-    winhome="$(ps_run '$env:USERPROFILE')"
-    cfg="$(wslpath -u "$winhome")/.wslconfig"
-    if [ -f "$cfg" ] && tr -d '\r' <"$cfg" | grep -Eiq '^[[:space:]]*networkingMode[[:space:]]*=[[:space:]]*mirrored'; then
-      echo "WSL: $cfg đã có networkingMode=mirrored nhưng WSL chưa khởi động lại."
-    else
-      cp "$cfg" "$cfg.bak" 2>/dev/null || true
-      tmpcfg="$(mktemp)"
-      if [ -f "$cfg" ] && tr -d '\r' <"$cfg" | grep -Eiq '^[[:space:]]*\[wsl2\]'; then
-        # Replace an existing networkingMode in [wsl2], or add one right after the header.
-        tr -d '\r' <"$cfg" | awk '
-          BEGIN { done = 0 }
-          /^[[:space:]]*\[/ { insec = tolower($0) ~ /^[[:space:]]*\[wsl2\]/; print; if (insec && !done) { print "networkingMode=mirrored"; done = 1 }; next }
-          insec && tolower($0) ~ /^[[:space:]]*networkingmode[[:space:]]*=/ { next }
-          { print }' >"$tmpcfg"
-      else
-        { [ -f "$cfg" ] && tr -d '\r' <"$cfg"; printf '\n[wsl2]\nnetworkingMode=mirrored\n'; } >"$tmpcfg"
-      fi
-      sed 's/$/\r/' "$tmpcfg" >"$cfg"
-      rm -f "$tmpcfg"
-      echo "WSL: đã bật networkingMode=mirrored trong $cfg (bản cũ: .wslconfig.bak)."
-    fi
-    WSL_RESTART=1
-  fi
-
-  hv="$(ps_run "(Get-NetFirewallHyperVVMSetting -PolicyStore ActiveStore -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -ErrorAction SilentlyContinue).DefaultInboundAction")"
-  if [ "$hv" != "Allow" ] && [ "$hv" != "1" ]; then
-    echo "WSL: cho phép kết nối từ ngoài vào WSL (tường lửa Hyper-V): bấm Yes trên hộp thoại của Windows."
-    inner="Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow"
-    enc="$(printf '%s' "$inner" | iconv -f UTF-8 -t UTF-16LE | base64 -w0)"
-    ps_run "try { Start-Process powershell.exe -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile','-EncodedCommand','$enc' } catch { }" >/dev/null || true
-    hv="$(ps_run "(Get-NetFirewallHyperVVMSetting -PolicyStore ActiveStore -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -ErrorAction SilentlyContinue).DefaultInboundAction")"
-    if [ "$hv" = "Allow" ] || [ "$hv" = "1" ]; then
-      echo "WSL: đã mở tường lửa Hyper-V cho WSL."
-    else
-      echo "WSL: chưa mở được tường lửa Hyper-V. Trong PowerShell (Run as Administrator) chạy:"
-      echo "     $inner"
-    fi
+    echo "WSL: chưa đọc được địa chỉ Tailscale của Windows. Đặt tay: herdr-bridge config host 100.x.y.z"
   fi
 }
 
@@ -147,11 +94,13 @@ elif ! "$dest" install; then
   fi
 fi
 
-if [ "$WSL_RESTART" = 1 ]; then
+if [ "$WSL_NAT" = 1 ]; then
+  ip_show="${WIN_TS_IP:-<IP Tailscale của Windows>}"
   echo
-  echo "Còn 1 bước: khởi động lại WSL để nhận địa chỉ Tailscale. Việc này dừng mọi thứ đang chạy trong WSL (kể cả herdr)."
-  echo "  1. Trong PowerShell trên Windows: wsl --shutdown"
-  echo "  2. Mở lại WSL, chạy herdr, rồi: herdr-bridge pair"
+  echo "Còn 1 bước trên Windows (làm 1 lần): chuyển cổng 7420 từ Tailscale vào WSL. Mở PowerShell (Run as Administrator):"
+  echo "  netsh interface portproxy add v4tov4 listenaddress=$ip_show listenport=7420 connectaddress=127.0.0.1 connectport=7420"
+  echo "  netsh advfirewall firewall add rule name=herdr-bridge dir=in action=allow protocol=TCP localport=7420 profile=any"
+  echo "Xong thì chạy: herdr-bridge pair"
 else
   echo "Xong. Tiếp theo: herdr-bridge pair"
 fi

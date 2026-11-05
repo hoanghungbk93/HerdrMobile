@@ -29,21 +29,28 @@ Bấm **Yes** khi Windows hỏi quyền mở cổng 7420 trên tường lửa. K
 
 ### Windows + WSL (herdr chạy trong WSL)
 
-Tailscale cài trên Windows, bridge cài **trong WSL** (cùng chỗ với herdr). Cần Windows 11 22H2 trở lên. Trong WSL chạy:
+Tailscale cài trên Windows, bridge cài **trong WSL** (cùng chỗ với herdr). WSL để chế độ mạng mặc định (NAT), không cần mirrored.
 
-```sh
-curl -fsSL https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.sh | sh
-```
+1. Trong WSL:
 
-Trong WSL, trình cài tự làm phần Windows:
+   ```sh
+   curl -fsSL https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.sh | sh
+   ```
 
-- bật `networkingMode=mirrored` trong `%USERPROFILE%\.wslconfig` để WSL dùng chung địa chỉ Tailscale của Windows (giữ nguyên các cấu hình khác, có bản sao `.wslconfig.bak`);
-- mở tường lửa Hyper-V cho WSL (bấm **Yes** khi Windows hỏi);
-- gỡ bridge bản Windows nếu đã cài, để nhường cổng 7420.
+   Trình cài cho bridge nghe trên `0.0.0.0` và ghi địa chỉ Tailscale của Windows vào mã QR. Nếu không đọc được địa chỉ này, đặt tay: `herdr-bridge config host 100.x.y.z`. Trình cài không sửa gì bên Windows.
 
-Lần đầu bật mirrored thì cần khởi động lại WSL (việc này dừng herdr đang chạy): trong PowerShell gõ `wsl --shutdown`, mở lại WSL, chạy herdr, rồi `herdr-bridge pair`.
+2. Trên Windows, mở PowerShell **Run as Administrator** (làm 1 lần), thay `100.x.y.z` bằng IP Tailscale của Windows:
 
-Muốn tự làm tay thay vì để trình cài sửa Windows: đặt `HERDR_BRIDGE_SKIP_WSL=1`, rồi thêm `[wsl2]` / `networkingMode=mirrored` vào `.wslconfig` và chạy trong PowerShell (Admin) `Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow`.
+   ```powershell
+   netsh interface portproxy add v4tov4 listenaddress=100.x.y.z listenport=7420 connectaddress=127.0.0.1 connectport=7420
+   netsh advfirewall firewall add rule name=herdr-bridge dir=in action=allow protocol=TCP localport=7420 profile=any
+   ```
+
+   Dòng đầu chuyển cổng 7420 từ Tailscale vào WSL (qua localhost forwarding của WSL). Dòng sau mở tường lửa.
+
+3. Trong WSL: `herdr-bridge pair`, quét mã QR.
+
+Nếu đã cài bridge bản Windows thì gỡ đi (`herdr-bridge uninstall` trong PowerShell) để nó không tranh cổng 7420.
 
 ### Lệnh hay dùng
 
@@ -51,6 +58,7 @@ Muốn tự làm tay thay vì để trình cài sửa Windows: đặt `HERDR_BRI
 | --- | --- |
 | `herdr-bridge pair` | Hiện mã QR / mã 6 số để ghép điện thoại (hết hạn sau 5 phút) |
 | `herdr-bridge status` | Bridge có chạy không, địa chỉ Tailscale, số thiết bị đã ghép |
+| `herdr-bridge config` | Xem / đổi `listen` (`tailscale` hoặc `all` = 0.0.0.0) và `host` (địa chỉ ghi vào mã QR) |
 | `herdr-bridge uninstall` | Gỡ tự khởi động |
 
 Bản trên web: <https://hoanghungbk93.github.io/HerdrMobile/#install>

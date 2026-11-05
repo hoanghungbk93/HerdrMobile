@@ -24,9 +24,12 @@ export interface BinderOptions {
   recheckMs?: number;
   getAddrs?: () => string[];
   log?: (msg: string) => void;
+  /** Bind 0.0.0.0 only (covers loopback too) instead of 127.0.0.1 + Tailscale addresses. */
+  listenAll?: boolean;
 }
 
 const LOCALHOST = '127.0.0.1';
+const ALL = '0.0.0.0';
 
 /**
  * Keeps one listener on 127.0.0.1 plus one per Tailscale address, adding and
@@ -38,15 +41,21 @@ export class Binder {
   private readonly recheckMs: number;
   private readonly getAddrs: () => string[];
   private readonly log: (msg: string) => void;
+  private readonly listenAll: boolean;
 
   constructor(private readonly startServer: (host: string) => { stop(): void }, opts: BinderOptions = {}) {
     this.recheckMs = opts.recheckMs ?? 10_000;
     this.getAddrs = opts.getAddrs ?? (() => tailscaleAddresses());
     this.log = opts.log ?? ((m) => console.log(m));
+    this.listenAll = opts.listenAll ?? false;
   }
 
   /** Throws if localhost cannot be bound. Tailscale binds are best-effort and retried. */
   start(): void {
+    if (this.listenAll) {
+      this.servers.set(ALL, this.startServer(ALL));
+      return;
+    }
     this.servers.set(LOCALHOST, this.startServer(LOCALHOST));
     this.check();
     this.timer = setInterval(() => this.check(), this.recheckMs);
