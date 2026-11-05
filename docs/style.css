@@ -11,3 +11,4 @@ hr{border:0;border-top:1px solid var(--line);margin:40px 0}
 h3{font-size:16px;margin:24px 0 6px}
 pre{background:var(--line);padding:10px 12px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5}
 pre code{white-space:pre}
+.cta{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;font-weight:600;padding:10px 18px;border-radius:10px}

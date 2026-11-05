@@ -2,12 +2,14 @@
 
 Cầu nối giữa [herdr](https://herdr.dev) trên máy tính và app điện thoại Herdr Mobile: xem terminal trực tiếp, gõ lệnh, duyệt yêu cầu cấp quyền ngay từ thông báo trên màn khoá. Kết nối đi qua Tailscale, không cần mở cổng ra Internet.
 
+**App iPhone:** [Tải Herdr trên App Store](https://apps.apple.com/app/id6830550859)
+
 ## Cài đặt
 
 1. Cài [Tailscale](https://tailscale.com/download) trên máy tính và iPhone, đăng nhập cùng một tài khoản.
 2. Cài [herdr](https://herdr.dev) trên máy tính và chạy các agent (Claude Code, Codex…) trong herdr.
 3. Cài herdr-bridge trên **đúng máy đang chạy herdr** (lệnh bên dưới).
-4. Chạy `herdr-bridge pair`, mở app Herdr → tab Máy → "Thêm máy", quét mã QR (hoặc nhập mã 6 số).
+4. Chạy `herdr-bridge pair`, mở app Herdr ([App Store](https://apps.apple.com/app/id6830550859)) → tab Máy → "Thêm máy", quét mã QR (hoặc nhập mã 6 số).
 
 ### macOS / Linux
 
