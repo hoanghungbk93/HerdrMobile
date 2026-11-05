@@ -511,6 +511,18 @@ export function createApp(deps: AppDeps): App {
           scrolledBy.get(ws.data.id)!.add(key);
           void phone.scroll(m.session, m.paneId, m.lines, m.cols, m.rows, msg.toBottom === true);
         } else if (
+          m.t === 'fit' &&
+          isStr(msg.session) &&
+          isStr(msg.paneId) &&
+          typeof msg.on === 'boolean' &&
+          typeof msg.cols === 'number' &&
+          typeof msg.rows === 'number'
+        ) {
+          const key = `${m.session}\n${m.paneId}`;
+          if (!scrolledBy.has(ws.data.id)) scrolledBy.set(ws.data.id, new Set());
+          scrolledBy.get(ws.data.id)!.add(key);
+          void phone.fit(m.session, m.paneId, m.on, m.cols, m.rows);
+        } else if (
           m.t === 'foreground' &&
           (msg.session === null || isStr(msg.session)) &&
           (msg.paneId === null || isStr(msg.paneId))

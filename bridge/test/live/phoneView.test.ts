@@ -100,3 +100,28 @@ test('idle at the bottom gives the pane back; scrolled up is given back only aft
   expect(b.pv.isHeld('s', 'p')).toBe(false);
   expect(b.scrolls.at(-1)).toBe(0);
 }, 10000);
+
+test('fit holds the pane at phone size without idle release; off gives it back', async () => {
+  const { pv, controllers, states, setTime } = setup();
+  await pv.fit('s', 'p', true, 45, 30);
+  expect(controllers.length).toBe(1);
+  expect(states.at(-1)).toEqual({ offset: 0, phone: true });
+  setTime(10_000); // way past idle and abandon
+  await Bun.sleep(1100);
+  expect(pv.isHeld('s', 'p')).toBe(true);
+  await pv.scroll('s', 'p', 5, 45, 30); // scrolling while fitted reuses the controller
+  await pv.scroll('s', 'p', 0, 45, 30, true);
+  expect(controllers.length).toBe(1);
+  await pv.fit('s', 'p', false, 45, 30);
+  expect(pv.isHeld('s', 'p')).toBe(false);
+  expect(controllers[0]!.sent.at(-2)).toEqual({ type: 'terminal.resize', cols: 119, rows: 40 });
+}, 10000);
+
+test('fit off while scrolled up keeps the scroll hold until the phone comes back down', async () => {
+  const { pv } = setup();
+  await pv.fit('s', 'p', true, 45, 30);
+  await pv.scroll('s', 'p', 10, 45, 30);
+  await pv.fit('s', 'p', false, 45, 30);
+  expect(pv.isHeld('s', 'p')).toBe(true);
+  await pv.stop();
+});

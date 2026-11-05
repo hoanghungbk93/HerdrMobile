@@ -37,6 +37,8 @@ interface Held {
   offset: number;
   max: number;
   lastAt: number;
+  /** "Fit to phone" is on: never given back for idleness, only when turned off or the phone leaves. */
+  pinned: boolean;
   /** Serialises scroll requests for this pane. */
   chain: Promise<void>;
 }
@@ -77,9 +79,7 @@ export class PhoneView {
     let h = this.held.get(key);
     if (!h) {
       if (toBottom || lines <= 0) return Promise.resolve(); // nothing to undo
-      h = { session, paneId, orig: null, size: null, controller: null, offset: 0, max: 0, lastAt: this.now(), chain: Promise.resolve() };
-      this.held.set(key, h);
-      if (!this.timer) this.timer = setInterval(() => this.sweep(), 1000);
+      h = this.hold(key, session, paneId);
     }
     const target = h;
     target.lastAt = this.now();
@@ -87,6 +87,64 @@ export class PhoneView {
       this.log(`[phone] scroll ${paneId} failed: ${e instanceof Error ? e.message : e}`);
     });
     return target.chain;
+  }
+
+  /** "Fit to phone": hold the pane at the phone's size (on), or give it back unless it is scrolled up (off). */
+  fit(session: string, paneId: string, on: boolean, cols: number, rows: number): Promise<void> {
+    const key = `${session}\n${paneId}`;
+    let h = this.held.get(key);
+    if (!on) {
+      if (!h) return Promise.resolve();
+      h.pinned = false;
+      return h.offset === 0 ? this.restore(key, h) : Promise.resolve();
+    }
+    if (!h) h = this.hold(key, session, paneId);
+    const target = h;
+    target.pinned = true;
+    target.lastAt = this.now();
+    target.chain = target.chain.then(() => this.take(key, target, { cols, rows })).catch((e) => {
+      this.log(`[phone] fit ${paneId} failed: ${e instanceof Error ? e.message : e}`);
+    });
+    return target.chain;
+  }
+
+  private hold(key: string, session: string, paneId: string): Held {
+    const h: Held = {
+      session,
+      paneId,
+      orig: null,
+      size: null,
+      controller: null,
+      offset: 0,
+      max: 0,
+      lastAt: this.now(),
+      pinned: false,
+      chain: Promise.resolve(),
+    };
+    this.held.set(key, h);
+    if (!this.timer) this.timer = setInterval(() => this.sweep(), 1000);
+    return h;
+  }
+
+  /** Resize the pane to the phone (first time: remember its size and open the controller). */
+  private async take(key: string, h: Held, want: PtySize): Promise<void> {
+    if (this.held.get(key) !== h) return;
+    const size = { cols: clampSize(want.cols, 20, 300), rows: clampSize(want.rows, 5, 200) };
+    if (!h.controller) {
+      if (h.orig === null) h.orig = await this.d.readSize(h.session, h.paneId);
+      if (h.orig && this.held.get(key) === h) {
+        h.controller = this.d.openController(h.session, h.paneId, size, () => {
+          // herdr closed the stream (pane gone, or another controller took over): we no longer hold the size.
+          if (this.held.get(key) === h) h.controller = null;
+        });
+        if (h.controller) h.size = size;
+      }
+    } else if (h.size && (h.size.cols !== size.cols || h.size.rows !== size.rows)) {
+      h.controller.send({ type: 'terminal.resize', cols: size.cols, rows: size.rows });
+      h.size = size;
+    }
+    this.d.poke(h.session, h.paneId);
+    this.d.onState({ session: h.session, paneId: h.paneId, offset: h.offset, max: h.max, phone: !!h.controller });
   }
 
   /** The phone no longer watches this pane (or any pane, without paneId). */
@@ -109,20 +167,8 @@ export class PhoneView {
     if (this.held.get(key) !== h) return;
     const client = this.d.getClient(h.session);
     if (!client) return;
-    const size = { cols: clampSize(want.cols, 20, 300), rows: clampSize(want.rows, 5, 200) };
-    if (!h.controller && !toBottom) {
-      if (h.orig === null) h.orig = await this.d.readSize(h.session, h.paneId);
-      if (h.orig) {
-        h.controller = this.d.openController(h.session, h.paneId, size, () => {
-          // herdr closed the stream (pane gone, or another controller took over): we no longer hold the size.
-          if (this.held.get(key) === h) h.controller = null;
-        });
-        if (h.controller) h.size = size;
-      }
-    } else if (h.controller && h.size && (h.size.cols !== size.cols || h.size.rows !== size.rows)) {
-      h.controller.send({ type: 'terminal.resize', cols: size.cols, rows: size.rows });
-      h.size = size;
-    }
+    if (!toBottom) await this.take(key, h, want);
+    if (this.held.get(key) !== h) return;
     const offset = toBottom ? 0 : Math.max(0, h.offset + Math.round(lines));
     const r = await client.request<PaneInfo>('pane.scroll', { pane_id: h.paneId, offset_from_bottom: offset });
     h.offset = r.pane.scroll?.offset_from_bottom ?? offset;
@@ -159,6 +205,7 @@ export class PhoneView {
     const now = this.now();
     for (const [key, h] of this.held) {
       const idle = now - h.lastAt;
+      if (h.pinned) continue;
       if ((h.offset === 0 && idle >= this.idleMs) || idle >= this.abandonMs) void this.restore(key, h);
     }
   }

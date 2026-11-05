@@ -47,7 +47,9 @@ export type ClientMsg =
    * Scroll a pane into its history (`lines` > 0 = up, < 0 = down; `toBottom` jumps back). The first scroll resizes
    * the pane to `cols` x `rows` (the phone's screen) until the phone goes back to the bottom and stays idle.
    */
-  | { t: 'scroll'; session: string; paneId: string; lines: number; cols: number; rows: number; toBottom?: boolean };
+  | { t: 'scroll'; session: string; paneId: string; lines: number; cols: number; rows: number; toBottom?: boolean }
+  /** Hold the pane at the phone's size (`on`) until turned off or the phone leaves; off = give it back now. */
+  | { t: 'fit'; session: string; paneId: string; on: boolean; cols: number; rows: number };
 
 export interface PushPrefs {
   private: boolean;
