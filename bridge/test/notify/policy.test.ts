@@ -9,7 +9,7 @@ const t = (from: Transition['from'], to: Transition['to'], over: Partial<Transit
 const prefs: PushPrefs = { private: true, mutedSessions: [], mutedPanes: [] };
 const ctx = (over: Record<string, unknown> = {}) => ({
   agentLabel: 'claude', workspaceLabel: 'hana', prefs,
-  foreground: { session: null, paneId: null }, ...over,
+  foreground: { session: null, paneId: null }, lang: 'vi' as const, ...over,
 });
 
 describe('NotifyPolicy', () => {
@@ -67,5 +67,13 @@ describe('NotifyPolicy', () => {
     expect(p.decide(t('working', 'done'), ctx({ deviceId: 'a' }), 1000)).not.toBeNull();
     expect(p.decide(t('working', 'done'), ctx({ deviceId: 'b' }), 1000)).not.toBeNull();
     expect(p.decide(t('working', 'done'), ctx({ deviceId: 'a' }), 2000)).toBeNull();
+  });
+});
+
+describe('NotifyPolicy language', () => {
+  test('English by default', () => {
+    const p = new NotifyPolicy();
+    expect(p.decide(t('working', 'blocked'), ctx({ lang: undefined }), 0)!.body).toBe('Waiting for approval');
+    expect(p.decide(t('working', 'done'), ctx({ lang: 'en' }), 0)!.body).toBe('Done');
   });
 });

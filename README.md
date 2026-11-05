@@ -1,15 +1,17 @@
+**English** · [Tiếng Việt](README.vi.md)
+
 # herdr-bridge
 
-Cầu nối giữa [herdr](https://herdr.dev) trên máy tính và app điện thoại Herdr Mobile: xem terminal trực tiếp, gõ lệnh, duyệt yêu cầu cấp quyền ngay từ thông báo trên màn khoá. Kết nối đi qua Tailscale, không cần mở cổng ra Internet.
+A bridge between [herdr](https://herdr.dev) on your computer and the Herdr Mobile phone app: watch terminals live, type commands, and approve permission requests right from the lock screen notification. The connection goes over Tailscale, so no ports need to be opened to the Internet.
 
-**App iPhone:** [Tải Herdr trên App Store](https://apps.apple.com/app/id6830550859)
+**iPhone app:** [Get Herdr on the App Store](https://apps.apple.com/app/id6830550859)
 
-## Cài đặt
+## Installation
 
-1. Cài [Tailscale](https://tailscale.com/download) trên máy tính và iPhone, đăng nhập cùng một tài khoản.
-2. Cài [herdr](https://herdr.dev) trên máy tính và chạy các agent (Claude Code, Codex…) trong herdr.
-3. Cài herdr-bridge trên **đúng máy đang chạy herdr** (lệnh bên dưới).
-4. Chạy `herdr-bridge pair`, mở app Herdr ([App Store](https://apps.apple.com/app/id6830550859)) → tab Máy → "Thêm máy", quét mã QR (hoặc nhập mã 6 số).
+1. Install [Tailscale](https://tailscale.com/download) on your computer and iPhone, and sign in with the same account.
+2. Install [herdr](https://herdr.dev) on your computer and run your agents (Claude Code, Codex…) inside herdr.
+3. Install herdr-bridge on **the same machine that runs herdr** (commands below).
+4. Run `herdr-bridge pair`, open the Herdr app ([App Store](https://apps.apple.com/app/id6830550859)) → Machines tab → "Add machine", and scan the QR code (or enter the 6-digit code).
 
 ### macOS / Linux
 
@@ -18,67 +20,67 @@ curl -fsSL https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download
 herdr-bridge pair
 ```
 
-### Windows (herdr chạy trực tiếp trên Windows)
+### Windows (herdr running directly on Windows)
 
-Trong PowerShell:
+In PowerShell:
 
 ```powershell
 irm https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.ps1 | iex
 herdr-bridge pair
 ```
 
-Bấm **Yes** khi Windows hỏi quyền mở cổng 7420 trên tường lửa. Không cần quyền admin cho phần còn lại.
+Click **Yes** when Windows asks for permission to open port 7420 in the firewall. Nothing else needs admin rights.
 
-### Windows + WSL (herdr chạy trong WSL)
+### Windows + WSL (herdr running in WSL)
 
-Tailscale cài trên Windows, bridge cài **trong WSL** (cùng chỗ với herdr). WSL để chế độ mạng mặc định (NAT), không cần mirrored.
+Tailscale is installed on Windows, the bridge is installed **inside WSL** (where herdr is). Leave WSL on the default networking mode (NAT); mirrored mode is not needed.
 
-1. Trong WSL:
+1. In WSL:
 
    ```sh
    curl -fsSL https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.sh | sh
    ```
 
-   Trình cài cho bridge nghe trên `0.0.0.0` và ghi địa chỉ Tailscale của Windows vào mã QR. Nếu không đọc được địa chỉ này, đặt tay: `herdr-bridge config host 100.x.y.z`. Trình cài không sửa gì bên Windows.
+   The installer makes the bridge listen on `0.0.0.0` and puts the Windows Tailscale address in the QR code. If it can't read that address, set it manually: `herdr-bridge config host 100.x.y.z`. The installer changes nothing on the Windows side.
 
-2. Trên Windows, mở PowerShell **Run as Administrator** (làm 1 lần), thay `100.x.y.z` bằng IP Tailscale của Windows:
+2. On Windows, open PowerShell with **Run as Administrator** (one time only) and replace `100.x.y.z` with the Windows Tailscale IP:
 
    ```powershell
    netsh interface portproxy add v4tov4 listenaddress=100.x.y.z listenport=7420 connectaddress=127.0.0.1 connectport=7420
    netsh advfirewall firewall add rule name=herdr-bridge dir=in action=allow protocol=TCP localport=7420 profile=any
    ```
 
-   Dòng đầu chuyển cổng 7420 từ Tailscale vào WSL (qua localhost forwarding của WSL). Dòng sau mở tường lửa.
+   The first line forwards port 7420 from Tailscale into WSL (through WSL's localhost forwarding). The second line opens the firewall.
 
-3. Trong WSL: `herdr-bridge pair`, quét mã QR.
+3. In WSL: `herdr-bridge pair`, then scan the QR code.
 
-Nếu đã cài bridge bản Windows thì gỡ đi (`herdr-bridge uninstall` trong PowerShell) để nó không tranh cổng 7420.
+If you previously installed the Windows version of the bridge, remove it (`herdr-bridge uninstall` in PowerShell) so it doesn't compete for port 7420.
 
-### Lệnh hay dùng
+### Common commands
 
-| Lệnh | Việc |
+| Command | What it does |
 | --- | --- |
-| `herdr-bridge pair` | Hiện mã QR / mã 6 số để ghép điện thoại (hết hạn sau 5 phút) |
-| `herdr-bridge status` | Bridge có chạy không, địa chỉ Tailscale, số thiết bị đã ghép |
-| `herdr-bridge config` | Xem / đổi `listen` (`tailscale` hoặc `all` = 0.0.0.0) và `host` (địa chỉ ghi vào mã QR) |
-| `herdr-bridge uninstall` | Gỡ tự khởi động |
+| `herdr-bridge pair` | Shows a QR code / 6-digit code to pair a phone (expires after 5 minutes) |
+| `herdr-bridge status` | Whether the bridge is running, the Tailscale address, number of paired devices |
+| `herdr-bridge config` | View / change `listen` (`tailscale` or `all` = 0.0.0.0) and `host` (the address put in the QR code) |
+| `herdr-bridge uninstall` | Removes autostart |
 
-Bản trên web: <https://hoanghungbk93.github.io/HerdrMobile/#install>
+Web version: <https://hoanghungbk93.github.io/HerdrMobile/#install>
 
-Chi tiết lệnh, bảo mật và ghi chú kỹ thuật: [bridge/README.md](bridge/README.md).
+Command details, security and technical notes: [bridge/README.md](bridge/README.md).
 
-## Phát triển
+## Development
 
-Cần [Bun](https://bun.sh) và pnpm.
+Requires [Bun](https://bun.sh) and pnpm.
 
 ```
 pnpm install
 pnpm test
-bun scripts/build-bridge.ts   # build binary cho 5 nền tảng vào dist/
+bun scripts/build-bridge.ts   # build binaries for 5 platforms into dist/
 ```
 
-Thành phần: `bridge/` (server + CLI), `packages/protocol/` (kiểu dữ liệu dùng chung với app).
+Components: `bridge/` (server + CLI), `packages/protocol/` (data types shared with the app).
 
-## Giấy phép
+## License
 
-MIT, xem [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).

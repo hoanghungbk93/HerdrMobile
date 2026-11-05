@@ -1,43 +1,39 @@
 <!doctype html>
-<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Herdr Mobile</title><link rel="stylesheet" href="style.css"></head>
 <body><main>
-<nav><a href="./">Trang chủ</a><a href="https://apps.apple.com/app/id6830550859">App Store</a><a href="privacy.html">Privacy Policy</a><a href="https://github.com/hoanghungbk93/HerdrMobile">GitHub</a></nav>
+<nav><a href="./">Home</a><a href="https://apps.apple.com/app/id6830550859">App Store</a><a href="privacy.html">Privacy Policy</a><a href="https://github.com/hoanghungbk93/HerdrMobile">GitHub</a><a href="vi.html">Tiếng Việt</a></nav>
 <h1>Herdr Mobile</h1>
-<p class="meta">Điều khiển các phiên herdr (Claude Code, Codex…) trên máy tính từ iPhone.</p>
-<p>Xem terminal trực tiếp, gõ lệnh, gửi ảnh và file cho agent, duyệt yêu cầu cấp quyền ngay từ thông báo trên màn khoá. App kết nối thẳng tới máy tính của bạn qua Tailscale; không có máy chủ trung gian của nhà phát triển.</p>
-<p><a class="cta" href="https://apps.apple.com/app/id6830550859">Tải Herdr trên App Store</a></p>
-<h2 id="install">Cài đặt</h2>
+<p class="meta">Control herdr sessions (Claude Code, Codex…) on your computer from your iPhone.</p>
+<p>Watch terminals live, type commands, send photos and files to agents, and approve permission requests right from the lock screen notification. The app connects directly to your computer over Tailscale; there is no intermediary server run by the developer.</p>
+<p><a class="cta" href="https://apps.apple.com/app/id6830550859">Get Herdr on the App Store</a></p>
+<h2 id="install">Installation</h2>
 <ol>
-<li>Cài <a href="https://tailscale.com/download">Tailscale</a> trên máy tính và iPhone, đăng nhập cùng một tài khoản.</li>
-<li>Cài <a href="https://herdr.dev">herdr</a> trên máy tính và chạy các agent (Claude Code, Codex…) trong herdr.</li>
-<li>Cài herdr-bridge trên đúng máy đang chạy herdr (xem lệnh bên dưới).</li>
-<li>Chạy <code>herdr-bridge pair</code>, mở app, vào tab Máy, bấm "Thêm máy" rồi quét mã QR (hoặc nhập mã 6 số).</li>
+<li>Install <a href="https://tailscale.com/download">Tailscale</a> on your computer and iPhone, and sign in with the same account.</li>
+<li>Install <a href="https://herdr.dev">herdr</a> on your computer and run your agents (Claude Code, Codex…) inside herdr.</li>
+<li>Install herdr-bridge on the same machine that runs herdr (see the commands below).</li>
+<li>Run <code>herdr-bridge pair</code>, open the app, go to the Machines tab, tap "Add machine" and scan the QR code (or enter the 6-digit code).</li>
 </ol>
 <h3>macOS / Linux</h3>
 <pre><code>curl -fsSL https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.sh | sh
 herdr-bridge pair</code></pre>
-<h3>Windows (herdr chạy trực tiếp trên Windows)</h3>
-<p>Mở PowerShell:</p>
+<h3>Windows (herdr running directly on Windows)</h3>
+<p>Open PowerShell:</p>
 <pre><code>irm https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.ps1 | iex
 herdr-bridge pair</code></pre>
-<p>Bấm <b>Yes</b> khi Windows hỏi quyền để mở cổng 7420 trên tường lửa.</p>
-<h3 id="wsl">Windows + WSL (herdr chạy trong WSL)</h3>
-<p>Tailscale cài trên Windows, bridge cài <b>trong WSL</b> (cùng chỗ với herdr). WSL để chế độ mạng mặc định (NAT), không cần mirrored.</p>
+<p>Click <b>Yes</b> when Windows asks for permission to open port 7420 in the firewall.</p>
+<h3 id="wsl">Windows + WSL (herdr running in WSL)</h3>
+<p>Tailscale is installed on Windows, the bridge is installed <b>inside WSL</b> (where herdr is). Leave WSL on the default networking mode (NAT); mirrored mode is not needed.</p>
 <ol>
-<li>Trong WSL:
+<li>In WSL:
 <pre><code>curl -fsSL https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.sh | sh</code></pre>
-Trình cài cho bridge nghe trên <code>0.0.0.0</code> và ghi địa chỉ Tailscale của Windows vào mã QR (nếu không đọc được: <code>herdr-bridge config host 100.x.y.z</code>). Trình cài không sửa gì bên Windows.</li>
-<li>Trên Windows, PowerShell <b>Run as Administrator</b> (làm 1 lần), thay <code>100.x.y.z</code> bằng IP Tailscale của Windows:
+The installer makes the bridge listen on <code>0.0.0.0</code> and puts the Windows Tailscale address in the QR code (if it can't read it: <code>herdr-bridge config host 100.x.y.z</code>). The installer changes nothing on the Windows side.</li>
+<li>On Windows, in PowerShell with <b>Run as Administrator</b> (one time only), replace <code>100.x.y.z</code> with the Windows Tailscale IP:
 <pre><code>netsh interface portproxy add v4tov4 listenaddress=100.x.y.z listenport=7420 connectaddress=127.0.0.1 connectport=7420
 netsh advfirewall firewall add rule name=herdr-bridge dir=in action=allow protocol=TCP localport=7420 profile=any</code></pre></li>
-<li>Trong WSL: <code>herdr-bridge pair</code>, quét mã QR.</li>
+<li>In WSL: <code>herdr-bridge pair</code>, then scan the QR code.</li>
 </ol>
-<p>Nếu đã cài bridge bản Windows thì gỡ đi (<code>herdr-bridge uninstall</code> trong PowerShell) để nó không tranh cổng 7420.</p>
-<h2>Hỗ trợ</h2>
-<p>Báo lỗi hoặc đặt câu hỏi tại <a href="https://github.com/hoanghungbk93/HerdrMobile/issues">GitHub Issues</a>.</p>
-<hr>
-<h2 lang="en">Support (English)</h2>
-<p lang="en">Setup: install Tailscale on your computer and iPhone, install herdr, then install the bridge on the machine running herdr (commands above: <code>install.sh</code> for macOS/Linux/WSL, <code>install.ps1</code> for Windows) and run <code>herdr-bridge pair</code>.</p>
-<p lang="en">Herdr Mobile lets you watch and control herdr terminal sessions running on your own computer, over your Tailscale network. For help or bug reports, open an issue at <a href="https://github.com/hoanghungbk93/HerdrMobile/issues">GitHub Issues</a>.</p>
+<p>If you previously installed the Windows version of the bridge, remove it (<code>herdr-bridge uninstall</code> in PowerShell) so it doesn't compete for port 7420.</p>
+<h2>Support</h2>
+<p>Herdr Mobile lets you watch and control herdr terminal sessions running on your own computer, over your Tailscale network. Report bugs or ask questions at <a href="https://github.com/hoanghungbk93/HerdrMobile/issues">GitHub Issues</a>.</p>
 </main></body></html>

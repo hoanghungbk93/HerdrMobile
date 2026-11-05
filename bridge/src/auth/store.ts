@@ -13,11 +13,14 @@ export interface Device {
   liveActivity?: LiveActivityReg | null;
   /** The Live Activity this bridge started on the phone (its broadcast channel). */
   activity?: ActivityRef | null;
+  /** App language, for push and Live Activity text (absent = English). */
+  lang?: Lang;
   createdAt: number;
   lastSeenAt: number;
 }
 
 export type ApnsEnv = 'production' | 'sandbox';
+export type Lang = 'en' | 'vi';
 export interface LiveActivityReg {
   startToken: string;
   env: ApnsEnv;
@@ -66,14 +69,27 @@ export class DeviceStore {
     return found;
   }
 
-  update(id: string, patch: Partial<Pick<Device, 'name' | 'pushToken' | 'prefs' | 'liveActivity' | 'activity'>>): void {
+  update(id: string, patch: Partial<Pick<Device, 'name' | 'pushToken' | 'prefs' | 'liveActivity' | 'activity' | 'lang'>>): void {
     const d = this.devices.find((x) => x.id === id);
     if (!d) return;
     if (patch.name !== undefined) d.name = patch.name;
-    if (patch.pushToken !== undefined) d.pushToken = patch.pushToken;
+    if (patch.pushToken !== undefined) {
+      d.pushToken = patch.pushToken;
+      // Re-pairing the same phone leaves the old pairing holding the same token: it would get every push twice,
+      // with a device id the app no longer knows (the notification then opens nothing).
+      if (patch.pushToken) for (const o of this.devices) if (o !== d && o.pushToken === patch.pushToken) o.pushToken = null;
+    }
     if (patch.prefs !== undefined) d.prefs = patch.prefs;
-    if (patch.liveActivity !== undefined) d.liveActivity = patch.liveActivity;
+    if (patch.liveActivity !== undefined) {
+      d.liveActivity = patch.liveActivity;
+      if (patch.liveActivity) {
+        for (const o of this.devices) {
+          if (o !== d && o.liveActivity?.startToken === patch.liveActivity.startToken) o.liveActivity = null;
+        }
+      }
+    }
     if (patch.activity !== undefined) d.activity = patch.activity;
+    if (patch.lang !== undefined) d.lang = patch.lang;
     this.save();
   }
 

@@ -11,6 +11,8 @@ export interface DecideContext {
   foreground: { session: string | null; paneId: string | null };
   detectionFirstLine?: string;
   hash?: string;
+  /** Text language (default English). */
+  lang?: 'en' | 'vi';
   /** When set, "done" coalescing is tracked per device, so one phone's push doesn't swallow another's. */
   deviceId?: string;
 }
@@ -42,7 +44,8 @@ export class NotifyPolicy {
       this.lastDone.set(doneKey, now);
     }
 
-    let body = kind === 'blocked' ? 'Đang chờ duyệt' : 'Đã xong';
+    const vi = ctx.lang === 'vi';
+    let body = kind === 'blocked' ? (vi ? 'Đang chờ duyệt' : 'Waiting for approval') : vi ? 'Đã xong' : 'Done';
     if (!ctx.prefs.private && ctx.detectionFirstLine) {
       body += `: ${ctx.detectionFirstLine.slice(0, MAX_LINE)}`;
     }

@@ -206,6 +206,9 @@ test('PUT /device stores the Live Activity start token', async () => {
   expect((await call(c, token, 'PUT', '/device', { liveActivity: { startToken: 'zz', env: 'production' } })).status).toBe(400);
   expect((await call(c, token, 'PUT', '/device', { liveActivity: { startToken: 'ab'.repeat(32), env: 'dev' } })).status).toBe(400);
   expect((await call(c, token, 'PUT', '/device', { liveActivity: null })).status).toBe(204);
+  expect((await call(c, token, 'PUT', '/device', { lang: 'vi' })).status).toBe(204);
+  expect(c.devices.list().find((x) => x.id === deviceId)!.lang).toBe('vi');
+  expect((await call(c, token, 'PUT', '/device', { lang: 'fr' })).status).toBe(400);
   expect(c.devices.list().find((x) => x.id === deviceId)!.liveActivity).toBeNull();
 });
 
@@ -382,7 +385,7 @@ test('push sent to both paired devices on blocked', async () => {
   expect(c.pushes.flatMap((p) => p.tokens).sort()).toEqual(['tokA', 'tokB']);
   const msg = c.pushes[0]!.msg;
   expect(msg.title).toBe('claude · hana');
-  expect(msg.body).toBe('Đang chờ duyệt'); // private mode is on by default
+  expect(msg.body).toBe('Waiting for approval'); // private mode is on by default; English by default
   const hash = parseApproval(PROMPT).hash;
   // each device gets its own payload carrying its deviceId (machine identity on the phone)
   const byToken = new Map(c.pushes.flatMap((p) => p.tokens.map((t) => [t, p.msg.data] as const)));
@@ -432,7 +435,7 @@ test('done push uses last recent line when not private; invalid tokens cleared',
   devices.update(b.id, { pushToken: 'dead', prefs: { private: false, mutedSessions: [], mutedPanes: [] } });
   hub.emit('transition', blocked({ to: 'done', agent: null }));
   await until(() => devices.pushTargets().length === 1);
-  expect(pushes[0]!.body).toBe('Đã xong: last useful line');
+  expect(pushes[0]!.body).toBe('Done: last useful line');
   expect(pushes[0]!.title).toBe('claude · hana'); // agent label falls back to the pane's agent
   expect(hub.herdr.calledWith('pane.read').map((x) => x.params)).toEqual([{ pane_id: PANE, source: 'recent', lines: 20 }]);
   expect(devices.pushTargets().map((d) => d.id)).toEqual([a.id]);

@@ -24,6 +24,8 @@ export interface ActivityProps {
   rows: ActivityRow[];
   /** every agent is quiet (shown before the activity ends) */
   done: boolean;
+  /** text language of the phone */
+  l: 'en' | 'vi';
 }
 
 const MAX_ROWS = 3;
@@ -36,7 +38,7 @@ function placeOf(tab: string | undefined, label: string | null, cwd: string | nu
   return dir || tab || '';
 }
 
-export function summarize(sessions: SessionSnapshot[], machine: string): ActivityProps {
+export function summarize(sessions: SessionSnapshot[], machine: string, l: 'en' | 'vi' = 'en'): ActivityProps {
   const rows: ActivityRow[] = [];
   let w = 0;
   let b = 0;
@@ -50,7 +52,7 @@ export function summarize(sessions: SessionSnapshot[], machine: string): Activit
     }
   }
   rows.sort((x, y) => (x.s === y.s ? 0 : x.s === 'blocked' ? -1 : 1));
-  return { m: machine.slice(0, 30), w, b, rows: rows.slice(0, MAX_ROWS), done: w + b === 0 };
+  return { m: machine.slice(0, 30), w, b, rows: rows.slice(0, MAX_ROWS), done: w + b === 0, l };
 }
 
 export interface RelayResult {
@@ -159,7 +161,7 @@ export class LiveActivities {
     const sessions = this.o.sessions();
     for (const d of this.o.devices.list()) {
       if (!d.liveActivity?.startToken) continue;
-      await this.flushDevice(d, summarize(sessions, this.o.machineName), urgent);
+      await this.flushDevice(d, summarize(sessions, this.o.machineName, d.lang ?? 'en'), urgent);
     }
   }
 
@@ -238,6 +240,7 @@ export class LiveActivities {
 }
 
 function alertFor(p: ActivityProps): { title: string; body: string } {
-  if (p.b > 0) return { title: p.m, body: `${p.b} agent đang chờ duyệt` };
-  return { title: p.m, body: `${p.w} agent đang chạy` };
+  const vi = p.l === 'vi';
+  if (p.b > 0) return { title: p.m, body: vi ? `${p.b} agent đang chờ duyệt` : `${p.b} waiting for approval` };
+  return { title: p.m, body: vi ? `${p.w} agent đang chạy` : `${p.w} running` };
 }

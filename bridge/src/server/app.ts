@@ -221,6 +221,7 @@ export function createApp(deps: AppDeps): App {
           agentLabel,
           workspaceLabel,
           prefs: d.prefs,
+          lang: d.lang,
           foreground: foreground.get(d.id) ?? { session: null, paneId: null },
           detectionFirstLine,
           hash,
@@ -287,6 +288,10 @@ export function createApp(deps: AppDeps): App {
     if (b.prefs !== undefined) {
       if (!isPrefs(b.prefs)) return fail(400, 'bad_request', 'prefs');
       patch.prefs = { private: b.prefs.private, mutedSessions: b.prefs.mutedSessions, mutedPanes: b.prefs.mutedPanes };
+    }
+    if (b.lang !== undefined) {
+      if (b.lang !== 'en' && b.lang !== 'vi') return fail(400, 'bad_request', 'lang');
+      patch.lang = b.lang;
     }
     if (b.liveActivity !== undefined) {
       const la = b.liveActivity;

@@ -96,3 +96,16 @@ describe('DeviceStore', () => {
     expect(s.verify(b.token)?.id).toBe(b.device.id);
   });
 });
+
+test('a push token moves to the device that claims it (re-paired phone)', () => {
+  const s = new DeviceStore(mkdtempSync(join(tmpdir(), 'st-')));
+  const a = s.add('old').device;
+  const b = s.add('new').device;
+  s.update(a.id, { pushToken: 'tok', liveActivity: { startToken: 'ab'.repeat(32), env: 'production' } });
+  s.update(b.id, { pushToken: 'tok', liveActivity: { startToken: 'ab'.repeat(32), env: 'production' } });
+  const [x, y] = s.list();
+  expect(x!.pushToken).toBeNull();
+  expect(x!.liveActivity).toBeNull();
+  expect(y!.pushToken).toBe('tok');
+  expect(s.pushTargets().map((d) => d.id)).toEqual([b.id]);
+});
