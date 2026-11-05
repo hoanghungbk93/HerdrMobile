@@ -169,7 +169,13 @@ async function pair(port: number): Promise<number> {
   }
   const p = (await res.json()) as { code: string; secret: string; machineName: string };
   const host = tailscaleAddresses().find((a) => !a.includes(':'));
-  if (!host) console.warn('Cảnh báo: không thấy địa chỉ Tailscale, dùng 127.0.0.1 (điện thoại sẽ không kết nối được).');
+  if (!host) {
+    console.warn('Cảnh báo: không thấy địa chỉ Tailscale, dùng 127.0.0.1 (điện thoại sẽ không kết nối được).');
+    if (isWsl()) {
+      console.warn('Đang chạy trong WSL: cần bật networkingMode=mirrored để WSL thấy địa chỉ Tailscale của Windows.');
+      console.warn('Xem: https://hoanghungbk93.github.io/HerdrMobile/#wsl');
+    }
+  }
   const url = pairUrl(host ?? '127.0.0.1', port, p.secret, p.machineName);
   qrcode.generate(url, { small: true });
   console.log(codeLine(p.code));
@@ -310,4 +316,15 @@ export async function main(argv: string[]): Promise<number | 'running'> {
 if (import.meta.main) {
   const r = await main(process.argv.slice(2));
   if (r !== 'running') process.exit(r);
+}
+
+/** WSL sets WSL_DISTRO_NAME; older builds only show "microsoft" in the kernel version. */
+function isWsl(): boolean {
+  if (process.platform !== 'linux') return false;
+  if (process.env.WSL_DISTRO_NAME) return true;
+  try {
+    return /microsoft/i.test(require('node:fs').readFileSync('/proc/version', 'utf8'));
+  } catch {
+    return false;
+  }
 }

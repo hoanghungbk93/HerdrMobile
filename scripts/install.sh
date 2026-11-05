@@ -24,11 +24,39 @@ esac
 # in mirrored networking mode, and Hyper-V's firewall must let inbound connections into WSL.
 is_wsl() { [ -n "${WSL_DISTRO_NAME:-}" ] || grep -qi microsoft /proc/version 2>/dev/null; }
 has_tailscale_ip() { ip -4 -o addr 2>/dev/null | grep -Eq 'inet 100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.'; }
-ps_run() { powershell.exe -NoProfile -NonInteractive -Command "$1" 2>/dev/null | tr -d '\r'; }
+PS_EXE=""
+# powershell.exe is often missing from PATH (wsl.conf appendWindowsPath=false): fall back to its full path.
+find_powershell() {
+  PS_EXE="$(command -v powershell.exe 2>/dev/null || true)"
+  if [ -z "$PS_EXE" ]; then
+    for p in /mnt/*/Windows/System32/WindowsPowerShell/v1.0/powershell.exe; do
+      [ -f "$p" ] && { PS_EXE="$p"; break; }
+    done
+  fi
+  [ -n "$PS_EXE" ] && "$PS_EXE" -NoProfile -NonInteractive -Command 'exit 0' >/dev/null 2>&1
+}
+ps_run() { "$PS_EXE" -NoProfile -NonInteractive -Command "$1" 2>/dev/null | tr -d '\r'; }
+wsl_manual() {
+  echo "     Làm tay trên Windows để điện thoại kết nối được tới bridge trong WSL:"
+  echo "     1. Thêm vào %USERPROFILE%\\.wslconfig hai dòng:  [wsl2]  và  networkingMode=mirrored"
+  echo "     2. PowerShell (Run as Administrator):"
+  echo "        Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow"
+  echo "     3. PowerShell: wsl --shutdown, mở lại WSL rồi chạy herdr-bridge pair"
+}
 WSL_RESTART=0
 
 wsl_setup() {
-  command -v powershell.exe >/dev/null 2>&1 || { echo "WSL: không gọi được powershell.exe (interop tắt?), bỏ qua cấu hình Windows."; return 0; }
+  if ! find_powershell; then
+    if has_tailscale_ip; then
+      echo "WSL: đã thấy địa chỉ Tailscale trong WSL. Không gọi được PowerShell nên không kiểm tra được tường lửa Hyper-V."
+      echo "     Nếu điện thoại không kết nối được, trong PowerShell (Run as Administrator) chạy:"
+      echo "     Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow"
+    else
+      echo "WSL: không gọi được powershell.exe (WSL đang tắt interop với Windows), chưa tự cấu hình được."
+      wsl_manual
+    fi
+    return 0
+  fi
 
   # A bridge installed on Windows itself would hold port 7420 on the same address.
   winexe="$(ps_run '$p = Join-Path $env:LOCALAPPDATA "Programs\HerdrBridge\herdr-bridge.exe"; if (Test-Path $p) { $p }')"
