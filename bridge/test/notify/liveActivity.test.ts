@@ -42,13 +42,21 @@ function setup(relayStatus: { start?: number; update?: number } = {}) {
 }
 
 describe('summarize', () => {
-  test('counts, blocked first, max 3 rows, private hides labels', () => {
-    const p = summarize(snap(['working', 'idle', 'blocked', 'working', 'working']), 'mac', false);
+  test('counts, blocked first, max 3 rows', () => {
+    const p = summarize(snap(['working', 'idle', 'blocked', 'working', 'working']), 'mac');
     expect(p).toMatchObject({ m: 'mac', w: 3, b: 1, done: false });
     expect(p.rows.length).toBe(3);
     expect(p.rows[0]).toEqual({ a: 'claude', t: 'tab 2', s: 'blocked' });
-    expect(summarize(snap(['working']), 'mac', true).rows[0]!.t).toBe('');
-    expect(summarize(snap(['idle', 'done']), 'mac', false).done).toBe(true);
+    expect(summarize(snap(['idle', 'done']), 'mac').done).toBe(true);
+  });
+
+  test('numbered tab falls back to the folder name', () => {
+    const s = snap(['working']);
+    s[0]!.tabs[0]!.label = '9';
+    s[0]!.panes[0]!.cwd = '/Users/me/Projects/HerdrMobile/';
+    expect(summarize(s, 'mac').rows[0]!.t).toBe('HerdrMobile');
+    s[0]!.panes[0]!.cwd = null;
+    expect(summarize(s, 'mac').rows[0]!.t).toBe('9');
   });
 });
 

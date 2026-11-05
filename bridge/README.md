@@ -52,7 +52,7 @@ Lưu trong `settings.json` ở thư mục dữ liệu.
 
 ## Live Activity (màn khoá / Dynamic Island, iOS 18+)
 
-Khi có agent đang chạy hoặc chờ duyệt, bridge bật Live Activity trên điện thoại (kể cả khi app đang tắt), cập nhật khi trạng thái đổi, và kết thúc 3 phút sau khi mọi agent rảnh. Gửi APNs cần khoá của nhà phát triển app, nên bridge đi qua một relay nhỏ giữ khoá đó. Relay chỉ nhận trạng thái tóm tắt: số agent đang chạy / chờ, tên agent, tên tab (ẩn tên tab khi bật chế độ riêng tư), tên máy; không bao giờ nhận nội dung terminal. Điện thoại tắt thông báo cho máy nào thì máy đó cũng không bật Live Activity.
+Khi có agent đang chạy hoặc chờ duyệt, bridge bật Live Activity trên điện thoại (kể cả khi app đang tắt), cập nhật khi trạng thái đổi, và kết thúc 3 phút sau khi mọi agent rảnh. Gửi APNs cần khoá của nhà phát triển app, nên bridge đi qua một relay nhỏ giữ khoá đó. Relay chỉ nhận trạng thái tóm tắt: số agent đang chạy / chờ, tên agent, tên tab (hoặc tên thư mục nếu tab chỉ có số), tên máy; không bao giờ nhận nội dung terminal. Điện thoại tắt thông báo cho máy nào thì máy đó cũng không bật Live Activity.
 
 Các route `/local/*` vẫn chỉ nhận từ loopback và cần khoá trong `local.key`; thiết bị vẫn phải ghép bằng mã.
 

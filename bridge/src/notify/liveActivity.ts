@@ -9,7 +9,7 @@ export const DEFAULT_RELAY_URL = 'https://herdr-relay.itmf.com.vn';
 export interface ActivityRow {
   /** agent, e.g. "claude" */
   a: string;
-  /** tab / pane label ('' in private mode) */
+  /** tab name the user gave it, else the pane's folder (never terminal content, so shown in private mode too) */
   t: string;
   s: 'working' | 'blocked';
 }
@@ -28,7 +28,15 @@ export interface ActivityProps {
 
 const MAX_ROWS = 3;
 
-export function summarize(sessions: SessionSnapshot[], machine: string, privateMode: boolean): ActivityProps {
+/** Tab label, unless it is herdr's default number: then the pane's folder name. */
+function placeOf(tab: string | undefined, label: string | null, cwd: string | null): string {
+  const named = [label, tab].find((x) => x && !/^\d+$/.test(x.trim()));
+  if (named) return named.trim();
+  const dir = cwd?.replace(/[\\/]+$/, '').split(/[\\/]/).pop();
+  return dir || tab || '';
+}
+
+export function summarize(sessions: SessionSnapshot[], machine: string): ActivityProps {
   const rows: ActivityRow[] = [];
   let w = 0;
   let b = 0;
@@ -38,7 +46,7 @@ export function summarize(sessions: SessionSnapshot[], machine: string, privateM
       if (p.status === 'working') w++;
       else b++;
       const tab = snap.tabs.find((t) => t.id === p.tabId)?.label;
-      rows.push({ a: p.agent ?? 'agent', t: privateMode ? '' : (p.label ?? tab ?? '').slice(0, 40), s: p.status });
+      rows.push({ a: p.agent ?? 'agent', t: placeOf(tab, p.label, p.cwd).slice(0, 40), s: p.status });
     }
   }
   rows.sort((x, y) => (x.s === y.s ? 0 : x.s === 'blocked' ? -1 : 1));
@@ -151,7 +159,7 @@ export class LiveActivities {
     const sessions = this.o.sessions();
     for (const d of this.o.devices.list()) {
       if (!d.liveActivity?.startToken) continue;
-      await this.flushDevice(d, summarize(sessions, this.o.machineName, d.prefs.private), urgent);
+      await this.flushDevice(d, summarize(sessions, this.o.machineName), urgent);
     }
   }
 
