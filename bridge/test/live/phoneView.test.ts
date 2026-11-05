@@ -183,3 +183,12 @@ test('click with unknown pane size does nothing', async () => {
   await pv.click('s', 'p', 1, 2);
   expect(controllers.length).toBe(0);
 });
+
+test('the phone size never exceeds the computer pane (rows or cols)', async () => {
+  const { pv, controllers, otherCmds } = setup(); // computer pane 119x40
+  await pv.fit('s', 'p', true, 45, 60);
+  expect(controllers[0]!.size).toEqual({ cols: 45, rows: 40 });
+  await pv.fit('s', 'p', true, 200, 30);
+  expect(otherCmds()).toEqual([{ type: 'terminal.resize', cols: 119, rows: 30 }]);
+  await pv.stop();
+});

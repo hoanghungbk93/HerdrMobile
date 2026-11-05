@@ -132,9 +132,14 @@ export class PhoneView {
   /** Resize the pane to the phone (first time: remember its size and open the controller). */
   private async take(key: string, h: Held, want: PtySize): Promise<void> {
     if (this.held.get(key) !== h) return;
-    const size = { cols: clampSize(want.cols, 20, 300), rows: clampSize(want.rows, 5, 200) };
+    if (!h.controller && h.orig === null) h.orig = await this.d.readSize(h.session, h.paneId);
+    // Never bigger than the computer's pane: a taller pane would push the app's bottom rows (Claude Code's input
+    // box) off the computer's screen.
+    const size = {
+      cols: Math.min(clampSize(want.cols, 20, 300), h.orig?.cols ?? 300),
+      rows: Math.min(clampSize(want.rows, 5, 200), h.orig?.rows ?? 200),
+    };
     if (!h.controller) {
-      if (h.orig === null) h.orig = await this.d.readSize(h.session, h.paneId);
       if (h.orig && this.held.get(key) === h) {
         h.controller = this.d.openController(h.session, h.paneId, size, () => {
           // herdr closed the stream (pane gone, or another controller took over): we no longer hold the size.
