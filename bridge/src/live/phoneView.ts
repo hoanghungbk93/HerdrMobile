@@ -39,6 +39,8 @@ interface Held {
   lastAt: number;
   /** "Fit to phone" is on: never given back for idleness, only when turned off or the phone leaves. */
   pinned: boolean;
+  /** max_offset_from_bottom was read once: > 0 = herdr scrollback, 0 = the app scrolls itself. */
+  scrollKnown: boolean;
   /** Serialises scroll requests for this pane. */
   chain: Promise<void>;
 }
@@ -119,6 +121,7 @@ export class PhoneView {
       max: 0,
       lastAt: this.now(),
       pinned: false,
+      scrollKnown: false,
       chain: Promise.resolve(),
     };
     this.held.set(key, h);
@@ -137,8 +140,11 @@ export class PhoneView {
           // herdr closed the stream (pane gone, or another controller took over): we no longer hold the size.
           if (this.held.get(key) === h) h.controller = null;
         });
-        if (h.controller) h.size = size;
-      }
+        if (h.controller) {
+          h.size = size;
+          this.log(`[phone] holding ${h.paneId} at ${size.cols}x${size.rows} (computer: ${h.orig.cols}x${h.orig.rows})`);
+        }
+      } else if (!h.orig) this.log(`[phone] ${h.paneId}: pane size unknown, scrolling without resizing`);
     } else if (h.size && (h.size.cols !== size.cols || h.size.rows !== size.rows)) {
       h.controller.send({ type: 'terminal.resize', cols: size.cols, rows: size.rows });
       h.size = size;
@@ -169,10 +175,33 @@ export class PhoneView {
     if (!client) return;
     if (!toBottom) await this.take(key, h, want);
     if (this.held.get(key) !== h) return;
-    const offset = toBottom ? 0 : Math.max(0, h.offset + Math.round(lines));
-    const r = await client.request<PaneInfo>('pane.scroll', { pane_id: h.paneId, offset_from_bottom: offset });
-    h.offset = r.pane.scroll?.offset_from_bottom ?? offset;
-    h.max = r.pane.scroll?.max_offset_from_bottom ?? h.max;
+    const n = Math.round(lines);
+    let info: PaneInfo;
+    if (h.controller && !toBottom && n !== 0 && !h.scrollKnown) {
+      // Learn whether this pane has herdr scrollback (shell) or an app that owns scrolling, before the first scroll.
+      const first = await client.request<PaneInfo>('pane.get', { pane_id: h.paneId });
+      h.max = first.pane.scroll?.max_offset_from_bottom ?? 0;
+      h.scrollKnown = true;
+    }
+    if (h.controller && !toBottom && n !== 0) {
+      // Through the controller herdr treats it like a mouse wheel: apps that own scrolling (Claude Code, vim with
+      // mouse) get wheel events, plain shells scroll herdr's scrollback. pane.scroll only does the latter.
+      const direction = n > 0 ? 'up' : 'down';
+      if (h.max > 0) {
+        // herdr's own scrollback (plain shell output): one command moves `lines` lines.
+        h.controller.send({ type: 'terminal.scroll', direction, lines: Math.min(Math.abs(n), 200) });
+      } else {
+        // An app that owns scrolling gets one wheel notch per command (~3 lines in Claude Code, vim).
+        for (let i = 0; i < Math.min(Math.ceil(Math.abs(n) / 3), 30); i++) h.controller.send({ type: 'terminal.scroll', direction, lines: 1 });
+      }
+      await Bun.sleep(30);
+      info = await client.request<PaneInfo>('pane.get', { pane_id: h.paneId });
+    } else {
+      const offset = toBottom ? 0 : Math.max(0, h.offset + n);
+      info = await client.request<PaneInfo>('pane.scroll', { pane_id: h.paneId, offset_from_bottom: offset });
+    }
+    h.offset = info.pane.scroll?.offset_from_bottom ?? h.offset;
+    h.max = info.pane.scroll?.max_offset_from_bottom ?? h.max;
     this.d.poke(h.session, h.paneId);
     this.d.onState({ session: h.session, paneId: h.paneId, offset: h.offset, max: h.max, phone: !!h.controller });
   }
@@ -194,6 +223,7 @@ export class PhoneView {
         h.controller.send({ type: 'terminal.resize', cols: h.orig.cols, rows: h.orig.rows });
         h.controller.send({ type: 'terminal.release' });
         h.controller.close();
+        this.log(`[phone] gave ${h.paneId} back at ${h.orig.cols}x${h.orig.rows}`);
       }
       h.controller = null;
       this.d.poke(h.session, h.paneId);
