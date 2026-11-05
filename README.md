@@ -29,30 +29,21 @@ Bấm **Yes** khi Windows hỏi quyền mở cổng 7420 trên tường lửa. K
 
 ### Windows + WSL (herdr chạy trong WSL)
 
-Tailscale cài trên Windows, bridge cài **trong WSL** (cùng chỗ với herdr). Cần Windows 11 22H2 trở lên.
+Tailscale cài trên Windows, bridge cài **trong WSL** (cùng chỗ với herdr). Cần Windows 11 22H2 trở lên. Trong WSL chạy:
 
-1. PowerShell thường: bật chế độ mạng mirrored để WSL dùng chung địa chỉ Tailscale của Windows, rồi khởi động lại WSL:
+```sh
+curl -fsSL https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.sh | sh
+```
 
-   ```powershell
-   Add-Content -Encoding ascii "$env:USERPROFILE\.wslconfig" "`n[wsl2]`nnetworkingMode=mirrored"
-   wsl --shutdown
-   ```
+Trong WSL, trình cài tự làm phần Windows:
 
-2. PowerShell **Run as Administrator**: cho phép kết nối từ ngoài vào WSL:
+- bật `networkingMode=mirrored` trong `%USERPROFILE%\.wslconfig` để WSL dùng chung địa chỉ Tailscale của Windows (giữ nguyên các cấu hình khác, có bản sao `.wslconfig.bak`);
+- mở tường lửa Hyper-V cho WSL (bấm **Yes** khi Windows hỏi);
+- gỡ bridge bản Windows nếu đã cài, để nhường cổng 7420.
 
-   ```powershell
-   Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow
-   ```
+Lần đầu bật mirrored thì cần khởi động lại WSL (việc này dừng herdr đang chạy): trong PowerShell gõ `wsl --shutdown`, mở lại WSL, chạy herdr, rồi `herdr-bridge pair`.
 
-3. Mở WSL, kiểm tra có địa chỉ `100.x` của Tailscale, rồi cài bridge:
-
-   ```sh
-   ip -4 addr | grep 100.
-   curl -fsSL https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.sh | sh
-   herdr-bridge pair
-   ```
-
-Nếu trước đó đã cài bridge bản Windows thì gỡ đi (`herdr-bridge uninstall` trong PowerShell) để trả cổng 7420 cho bridge trong WSL.
+Muốn tự làm tay thay vì để trình cài sửa Windows: đặt `HERDR_BRIDGE_SKIP_WSL=1`, rồi thêm `[wsl2]` / `networkingMode=mirrored` vào `.wslconfig` và chạy trong PowerShell (Admin) `Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow`.
 
 ### Lệnh hay dùng
 
