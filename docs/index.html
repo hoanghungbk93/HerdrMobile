@@ -6,15 +6,39 @@
 <h1>Herdr Mobile</h1>
 <p class="meta">Điều khiển các phiên herdr (Claude Code, Codex…) trên máy tính từ iPhone.</p>
 <p>Xem terminal trực tiếp, gõ lệnh, gửi ảnh và file cho agent, duyệt yêu cầu cấp quyền ngay từ thông báo trên màn khoá. App kết nối thẳng tới máy tính của bạn qua Tailscale; không có máy chủ trung gian của nhà phát triển.</p>
-<h2>Cách dùng</h2>
+<h2 id="install">Cài đặt</h2>
 <ol>
-<li>Cài Tailscale trên máy tính và iPhone, đăng nhập cùng tài khoản.</li>
-<li>Cài herdr-bridge trên máy tính: <code>curl -fsSL https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.sh | sh</code></li>
-<li>Chạy <code>herdr-bridge pair</code> rồi quét mã QR bằng app.</li>
+<li>Cài <a href="https://tailscale.com/download">Tailscale</a> trên máy tính và iPhone, đăng nhập cùng một tài khoản.</li>
+<li>Cài <a href="https://herdr.dev">herdr</a> trên máy tính và chạy các agent (Claude Code, Codex…) trong herdr.</li>
+<li>Cài herdr-bridge trên đúng máy đang chạy herdr (xem lệnh bên dưới).</li>
+<li>Chạy <code>herdr-bridge pair</code>, mở app, vào tab Máy, bấm "Thêm máy" rồi quét mã QR (hoặc nhập mã 6 số).</li>
 </ol>
+<h3>macOS / Linux</h3>
+<pre><code>curl -fsSL https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.sh | sh
+herdr-bridge pair</code></pre>
+<h3>Windows (herdr chạy trực tiếp trên Windows)</h3>
+<p>Mở PowerShell:</p>
+<pre><code>irm https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.ps1 | iex
+herdr-bridge pair</code></pre>
+<p>Bấm <b>Yes</b> khi Windows hỏi quyền để mở cổng 7420 trên tường lửa.</p>
+<h3 id="wsl">Windows + WSL (herdr chạy trong WSL)</h3>
+<p>Tailscale cài trên Windows, bridge cài <b>trong WSL</b> (cùng chỗ với herdr). Cần Windows 11 22H2 trở lên.</p>
+<ol>
+<li>PowerShell thường: bật chế độ mạng mirrored để WSL dùng chung địa chỉ Tailscale của Windows, rồi khởi động lại WSL:
+<pre><code>Add-Content -Encoding ascii "$env:USERPROFILE\.wslconfig" "`n[wsl2]`nnetworkingMode=mirrored"
+wsl --shutdown</code></pre></li>
+<li>PowerShell <b>Run as Administrator</b>: cho phép kết nối từ ngoài vào WSL:
+<pre><code>Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow</code></pre></li>
+<li>Mở WSL, kiểm tra thấy địa chỉ 100.x của Tailscale rồi cài bridge:
+<pre><code>ip -4 addr | grep 100.
+curl -fsSL https://github.com/hoanghungbk93/HerdrMobile/releases/latest/download/install.sh | sh
+herdr-bridge pair</code></pre></li>
+</ol>
+<p>Nếu trước đó đã cài bridge bản Windows thì gỡ đi (<code>herdr-bridge uninstall</code> trong PowerShell) để trả cổng 7420 cho bridge trong WSL.</p>
 <h2>Hỗ trợ</h2>
 <p>Báo lỗi hoặc đặt câu hỏi tại <a href="https://github.com/hoanghungbk93/HerdrMobile/issues">GitHub Issues</a>.</p>
 <hr>
 <h2 lang="en">Support (English)</h2>
+<p lang="en">Setup: install Tailscale on your computer and iPhone, install herdr, then install the bridge on the machine running herdr (commands above: <code>install.sh</code> for macOS/Linux/WSL, <code>install.ps1</code> for Windows) and run <code>herdr-bridge pair</code>.</p>
 <p lang="en">Herdr Mobile lets you watch and control herdr terminal sessions running on your own computer, over your Tailscale network. For help or bug reports, open an issue at <a href="https://github.com/hoanghungbk93/HerdrMobile/issues">GitHub Issues</a>.</p>
 </main></body></html>

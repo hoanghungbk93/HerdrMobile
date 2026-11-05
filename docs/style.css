@@ -8,3 +8,6 @@ h1{font-size:28px;margin:0 0 4px}h2{font-size:19px;margin:32px 0 8px}
 a{color:var(--accent)}ul{padding-left:20px}li{margin:4px 0}
 nav{display:flex;gap:16px;font-size:14px;margin-bottom:32px}
 hr{border:0;border-top:1px solid var(--line);margin:40px 0}
+h3{font-size:16px;margin:24px 0 6px}
+pre{background:var(--line);padding:10px 12px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5}
+pre code{white-space:pre}
