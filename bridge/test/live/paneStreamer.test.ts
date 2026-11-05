@@ -110,6 +110,12 @@ test('emits when text changes but revision does not', async () => {
   s.stop();
 });
 
+/** Waits for a condition instead of a fixed sleep, so slow CI runners don't flake. */
+async function until(cond: () => boolean, ms = 2000): Promise<void> {
+  const end = Date.now() + ms;
+  while (!cond() && Date.now() < end) await Bun.sleep(10);
+}
+
 /** A controllable observer: `push()` reports a change, `exit()` simulates herdr closing the stream. */
 function fakeObserve(opts: { fail?: boolean } = {}) {
   const live: { change: () => void; exit: () => void; killed: boolean }[] = [];
@@ -177,11 +183,11 @@ test('falls back to polling when the observer is unavailable or exits, and retri
   await Bun.sleep(60);
   const before = f.calls.length;
   o.live[0]!.exit();
-  await Bun.sleep(100);
+  await until(() => f.calls.length > before + 2);
   expect(f.calls.length).toBeGreaterThan(before + 2); // polling again
   expect(o.live.length).toBe(1);
   t = 1500;
-  await Bun.sleep(40);
+  await until(() => o.live.length === 2);
   expect(o.live.length).toBe(2); // retried
   s.stop();
 
@@ -189,7 +195,7 @@ test('falls back to polling when the observer is unavailable or exits, and retri
   const f2 = fakeClient();
   const s2 = new PaneStreamer(() => f2.client, HZ, { observe: none.observe });
   s2.watch('c1', 's1', 'p1', () => {});
-  await Bun.sleep(100);
+  await until(() => f2.calls.length > 2);
   expect(f2.calls.length).toBeGreaterThan(2);
   s2.stop();
 });
