@@ -152,7 +152,8 @@ test('fit off while scrolled up keeps the scroll hold until the phone comes back
 test('an app that owns scrolling (no herdr scrollback) gets one wheel notch per ~3 lines', async () => {
   const { pv, scrollCmds } = setup({ max: 0 });
   await pv.scroll('s', 'p', 10, 45, 30);
-  expect(scrollCmds()).toEqual(Array(4).fill({ type: 'terminal.scroll', direction: 'up', lines: 1 }));
+  // Mid-pane, not herdr's default cell (0,0): Codex ignores wheel events on the top-left cell.
+  expect(scrollCmds()).toEqual(Array(4).fill({ type: 'terminal.scroll', direction: 'up', lines: 1, column: 22, row: 15 }));
   await pv.stop();
 });
 

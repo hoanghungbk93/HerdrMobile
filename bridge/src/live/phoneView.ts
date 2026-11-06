@@ -229,8 +229,10 @@ export class PhoneView {
         // herdr's own scrollback (plain shell output): one command moves `lines` lines.
         h.controller.send({ type: 'terminal.scroll', direction, lines: Math.min(Math.abs(n), 200) });
       } else {
-        // An app that owns scrolling gets one wheel notch per command (~3 lines in Claude Code, vim).
-        for (let i = 0; i < Math.min(Math.ceil(Math.abs(n) / 3), 30); i++) h.controller.send({ type: 'terminal.scroll', direction, lines: 1 });
+        // An app that owns scrolling gets one wheel notch per command (~3 lines in Claude Code, vim). Aim at the
+        // middle of the pane: herdr defaults to cell (0,0), and Codex ignores wheel events on that top-left cell.
+        const at = h.size ? { column: Math.floor(h.size.cols / 2), row: Math.floor(h.size.rows / 2) } : {};
+        for (let i = 0; i < Math.min(Math.ceil(Math.abs(n) / 3), 30); i++) h.controller.send({ type: 'terminal.scroll', direction, lines: 1, ...at });
       }
       await Bun.sleep(30);
       info = await client.request<PaneInfo>('pane.get', { pane_id: h.paneId });
