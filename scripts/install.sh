@@ -2,7 +2,7 @@
 # herdr-bridge installer (macOS / Linux).
 # Env: HERDR_BRIDGE_REPO (default hoanghungbk93/HerdrMobile), HERDR_BRIDGE_BASE_URL (override download dir),
 #      HERDR_BRIDGE_PREFIX (install dir, default ~/.local/bin), HERDR_BRIDGE_SKIP_SERVICE=1 (skip autostart),
-#      HERDR_BRIDGE_SKIP_WSL=1 (inside WSL: skip the NAT-mode setup).
+#      HERDR_BRIDGE_SKIP_WSL=1 (inside WSL: skip the NAT-mode setup), HERDR_BRIDGE_UPDATE=1 (set by `herdr-bridge update`).
 set -eu
 # Run as `curl ... | sh`: everything below is inside main() so the shell reads the whole script before running
 # any of it (a command that reads stdin can no longer swallow the rest of the script).
@@ -104,6 +104,8 @@ if [ "$WSL_NAT" = 1 ]; then
   echo "  netsh interface portproxy add v4tov4 listenaddress=$ip_show listenport=7420 connectaddress=127.0.0.1 connectport=7420"
   echo "  netsh advfirewall firewall add rule name=herdr-bridge dir=in action=allow protocol=TCP localport=7420 profile=any"
   echo "Xong thì chạy: herdr-bridge pair"
+elif [ "${HERDR_BRIDGE_UPDATE:-}" = "1" ]; then
+  echo "Đã cập nhật. Điện thoại đã ghép vẫn dùng tiếp, không cần pair lại."
 else
   echo "Xong. Tiếp theo: herdr-bridge pair"
 fi

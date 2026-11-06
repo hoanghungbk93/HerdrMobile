@@ -21,7 +21,8 @@ Installer environment variables: `HERDR_BRIDGE_REPO`, `HERDR_BRIDGE_BASE_URL`, `
 
 ## Commands
 
-`start`, `pair`, `devices`, `revoke <id>`, `status`, `install`, `uninstall` (add `--port N` if you change the port; default 7420).
+`start`, `pair`, `devices`, `revoke <id>`, `status`, `install`, `uninstall`, `update [--force]`, `version` (add `--port N` if you change the port; default 7420).
+`update` installs the latest GitHub release over the current binary and restarts autostart; pairing data is kept. Bridges before v0.4.4 have no `update`: rerun the install command once.
 `uninstall` only removes autostart and keeps the data in `~/.herdr-mobile/` (Windows: `%USERPROFILE%\.herdr-mobile\`).
 When running in the background (no terminal), `start` logs to `bridge.log` in the data directory on every OS.
 On Windows, the HerdrBridge task runs hidden via `conhost.exe --headless`; `install` also removes the 72h time limit and the battery conditions, and sets it to restart every minute on failure (PowerShell `Set-ScheduledTask`).

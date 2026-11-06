@@ -73,4 +73,4 @@ if ($env:HERDR_BRIDGE_SKIP_FIREWALL -ne '1' -and -not (Get-NetFirewallRule -Disp
     Write-Host '  netsh advfirewall firewall add rule name=herdr-bridge dir=in action=allow protocol=TCP localport=7420 profile=any'
   }
 }
-Write-Host 'Done. Next: herdr-bridge pair'
+if ($env:HERDR_BRIDGE_UPDATE -eq '1') { Write-Host 'Updated. Paired phones keep working; no need to pair again.' } else { Write-Host 'Done. Next: herdr-bridge pair' }

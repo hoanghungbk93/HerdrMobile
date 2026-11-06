@@ -14,7 +14,9 @@ import { createApp, type App } from './server/app';
 import { DEFAULT_RELAY_URL, httpRelay } from './notify/liveActivity';
 import { installService, uninstallService } from './service/units';
 import { readSettings, validHost, writeSettings } from './settings';
+import { updateCmd } from './update';
 import { UploadStore } from './uploads/store';
+import { VERSION } from './version';
 import { Hub } from './watch/hub';
 
 const MAX_BODY = 512 * 1024 * 1024;
@@ -346,8 +348,15 @@ export async function main(argv: string[]): Promise<number | 'running'> {
     case 'install':
     case 'uninstall':
       return serviceCmd(a.cmd);
+    case 'update':
+      return updateCmd(a.rest);
+    case 'version':
+    case '--version':
+    case '-v':
+      console.log(VERSION);
+      return 0;
     default:
-      console.error('Usage: herdr-bridge <start|pair|devices|revoke <id>|status|config|install|uninstall> [--port N]');
+      console.error('Usage: herdr-bridge <start|pair|devices|revoke <id>|status|config|install|uninstall|update [--force]|version> [--port N]');
       return 2;
   }
 }

@@ -21,7 +21,8 @@ Biến môi trường của installer: `HERDR_BRIDGE_REPO`, `HERDR_BRIDGE_BASE_U
 
 ## Lệnh
 
-`start`, `pair`, `devices`, `revoke <id>`, `status`, `install`, `uninstall` (thêm `--port N` nếu đổi cổng, mặc định 7420).
+`start`, `pair`, `devices`, `revoke <id>`, `status`, `install`, `uninstall`, `update [--force]`, `version` (thêm `--port N` nếu đổi cổng, mặc định 7420).
+`update` cài bản mới nhất trên GitHub đè lên file hiện tại rồi khởi động lại; dữ liệu ghép được giữ. Bridge trước v0.4.4 chưa có `update`: chạy lại lệnh cài một lần.
 `uninstall` chỉ gỡ tự khởi động, giữ nguyên dữ liệu trong `~/.herdr-mobile/` (Windows: `%USERPROFILE%\.herdr-mobile\`).
 Khi chạy nền (không có terminal), `start` ghi log vào `bridge.log` trong thư mục dữ liệu trên mọi hệ điều hành.
 Trên Windows, tác vụ HerdrBridge chạy ẩn qua `conhost.exe --headless`; `install` còn gỡ giới hạn thời gian 72h và điều kiện pin, và đặt tự khởi động lại mỗi phút nếu lỗi (PowerShell `Set-ScheduledTask`).

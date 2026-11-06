@@ -63,6 +63,8 @@ Nếu đã cài bridge bản Windows thì gỡ đi (`herdr-bridge uninstall` tro
 | `herdr-bridge pair` | Hiện mã QR / mã 6 số để ghép điện thoại (hết hạn sau 5 phút) |
 | `herdr-bridge status` | Bridge có chạy không, địa chỉ Tailscale, số thiết bị đã ghép |
 | `herdr-bridge config` | Xem / đổi `listen` (`tailscale` hoặc `all` = 0.0.0.0) và `host` (địa chỉ ghi vào mã QR) |
+| `herdr-bridge update` | Cài bản mới nhất và khởi động lại bridge; điện thoại đã ghép vẫn dùng tiếp (`--force` để cài lại) |
+| `herdr-bridge version` | In phiên bản đang cài |
 | `herdr-bridge uninstall` | Gỡ tự khởi động |
 
 Bản trên web: <https://hoanghungbk93.github.io/HerdrMobile/#install>

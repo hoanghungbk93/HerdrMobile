@@ -63,6 +63,8 @@ If you previously installed the Windows version of the bridge, remove it (`herdr
 | `herdr-bridge pair` | Shows a QR code / 6-digit code to pair a phone (expires after 5 minutes) |
 | `herdr-bridge status` | Whether the bridge is running, the Tailscale address, number of paired devices |
 | `herdr-bridge config` | View / change `listen` (`tailscale` or `all` = 0.0.0.0) and `host` (the address put in the QR code) |
+| `herdr-bridge update` | Installs the latest release and restarts the bridge; paired phones keep working (`--force` reinstalls) |
+| `herdr-bridge version` | Prints the installed version |
 | `herdr-bridge uninstall` | Removes autostart |
 
 Web version: <https://hoanghungbk93.github.io/HerdrMobile/#install>
