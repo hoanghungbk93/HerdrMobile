@@ -15,12 +15,12 @@ PREFIX="${HERDR_BRIDGE_PREFIX:-$HOME/.local/bin}"
 case "$(uname -s)" in
   Darwin) os=darwin ;;
   Linux) os=linux ;;
-  *) echo "Hệ điều hành không hỗ trợ: $(uname -s) (Windows dùng install.ps1)" >&2; exit 1 ;;
+  *) echo "Unsupported OS: $(uname -s) (on Windows use install.ps1)" >&2; exit 1 ;;
 esac
 case "$(uname -m)" in
   arm64|aarch64) arch=arm64 ;;
   x86_64|amd64) arch=x64 ;;
-  *) echo "Kiến trúc không hỗ trợ: $(uname -m)" >&2; exit 1 ;;
+  *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
 esac
 
 # --- WSL (NAT mode): the phone dials the Windows Tailscale address, which WSL cannot see. The bridge then
@@ -45,22 +45,22 @@ WIN_TS_IP=""
 # Read-only: never changes Windows settings.
 wsl_setup() {
   if has_tailscale_ip; then
-    echo "WSL: thấy địa chỉ Tailscale ngay trong WSL, dùng chế độ bình thường."
+    echo "WSL: Tailscale address found inside WSL, using normal mode."
     return 0
   fi
   WSL_NAT=1
   "$dest" config listen all </dev/null >/dev/null
-  echo "WSL: bridge sẽ nghe trên 0.0.0.0 (cổng 7420)."
+  echo "WSL: the bridge will listen on 0.0.0.0 (port 7420)."
   if find_powershell; then
     WIN_TS_IP="$(ps_run "(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { \$_.IPAddress -match '^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.' } | Select-Object -First 1).IPAddress")"
     winexe="$(ps_run '$p = Join-Path $env:LOCALAPPDATA "Programs\HerdrBridge\herdr-bridge.exe"; if (Test-Path $p) { $p }')"
-    [ -n "$winexe" ] && echo "WSL: Windows cũng đang cài herdr-bridge ($winexe); nó sẽ tranh cổng 7420. Gỡ trong PowerShell: herdr-bridge uninstall"
+    [ -n "$winexe" ] && echo "WSL: herdr-bridge is also installed on Windows ($winexe) and will compete for port 7420. Remove it in PowerShell: herdr-bridge uninstall"
   fi
   if [ -n "$WIN_TS_IP" ]; then
     "$dest" config host "$WIN_TS_IP" </dev/null >/dev/null
-    echo "WSL: mã QR sẽ dùng địa chỉ Tailscale của Windows: $WIN_TS_IP"
+    echo "WSL: the QR code will use the Windows Tailscale address: $WIN_TS_IP"
   else
-    echo "WSL: chưa đọc được địa chỉ Tailscale của Windows. Đặt tay: herdr-bridge config host 100.x.y.z"
+    echo "WSL: could not read the Windows Tailscale address. Set it by hand: herdr-bridge config host 100.x.y.z"
   fi
 }
 
@@ -69,17 +69,17 @@ dest="$PREFIX/herdr-bridge"
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
 
-echo "Tải $BASE_URL/$asset"
+echo "Downloading $BASE_URL/$asset"
 curl -fSL --retry 2 -o "$tmp" "$BASE_URL/$asset" </dev/null
 mkdir -p "$PREFIX"
 chmod 755 "$tmp"
 mv -f "$tmp" "$dest"
 trap - EXIT
-echo "Đã cài $dest"
+echo "Installed $dest"
 
 case ":$PATH:" in
   *":$PREFIX:"*) ;;
-  *) echo "Lưu ý: $PREFIX chưa có trong PATH." ;;
+  *) echo "Note: $PREFIX is not in PATH." ;;
 esac
 
 if [ "$os" = linux ] && is_wsl && [ "${HERDR_BRIDGE_SKIP_WSL:-}" != "1" ]; then
@@ -87,27 +87,27 @@ if [ "$os" = linux ] && is_wsl && [ "${HERDR_BRIDGE_SKIP_WSL:-}" != "1" ]; then
 fi
 
 if [ "${HERDR_BRIDGE_SKIP_SERVICE:-}" = "1" ]; then
-  echo "Bỏ qua đăng ký tự khởi động (HERDR_BRIDGE_SKIP_SERVICE=1)."
+  echo "Skipping autostart (HERDR_BRIDGE_SKIP_SERVICE=1)."
 elif ! "$dest" install </dev/null; then
   if is_wsl; then
-    echo "WSL: chưa đăng ký tự khởi động được (WSL cần bật systemd: thêm [boot] systemd=true vào /etc/wsl.conf rồi khởi động lại WSL)."
-    echo "     Tạm thời chạy tay: herdr-bridge start"
+    echo "WSL: could not register autostart (WSL needs systemd: add [boot] systemd=true to /etc/wsl.conf, then restart WSL)."
+    echo "     For now run it by hand: herdr-bridge start"
   else
     exit 1
   fi
 fi
 
 if [ "$WSL_NAT" = 1 ]; then
-  ip_show="${WIN_TS_IP:-<IP Tailscale của Windows>}"
+  ip_show="${WIN_TS_IP:-<Windows Tailscale IP>}"
   echo
-  echo "Còn 1 bước trên Windows (làm 1 lần): chuyển cổng 7420 từ Tailscale vào WSL. Mở PowerShell (Run as Administrator):"
+  echo "One more step on Windows (once): forward port 7420 from Tailscale into WSL. Open PowerShell (Run as Administrator):"
   echo "  netsh interface portproxy add v4tov4 listenaddress=$ip_show listenport=7420 connectaddress=127.0.0.1 connectport=7420"
   echo "  netsh advfirewall firewall add rule name=herdr-bridge dir=in action=allow protocol=TCP localport=7420 profile=any"
-  echo "Xong thì chạy: herdr-bridge pair"
+  echo "Then run: herdr-bridge pair"
 elif [ "${HERDR_BRIDGE_UPDATE:-}" = "1" ]; then
-  echo "Đã cập nhật. Điện thoại đã ghép vẫn dùng tiếp, không cần pair lại."
+  echo "Updated. Paired phones keep working; no need to pair again."
 else
-  echo "Xong. Tiếp theo: herdr-bridge pair"
+  echo "Done. Next: herdr-bridge pair"
 fi
 }
 main "$@"

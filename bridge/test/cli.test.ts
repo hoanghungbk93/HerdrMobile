@@ -1,9 +1,9 @@
 import { expect, test } from 'bun:test';
 import { codeLine, daemon, pairUrl, parseArgs, serveOn, splitCode } from '../src/cli';
 
-test('code line is split 3+3 in Vietnamese', () => {
+test('code line is split 3+3', () => {
   expect(splitCode('482913')).toBe('482 913');
-  expect(codeLine('482913')).toBe('Mã ghép: 482 913 · hết hạn sau 5 phút');
+  expect(codeLine('482913')).toBe('Pairing code: 482 913 · expires in 5 minutes');
 });
 
 test('pair URL encodes machine name and secret', () => {

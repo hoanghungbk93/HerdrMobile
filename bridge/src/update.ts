@@ -57,7 +57,7 @@ export function installerCommand(
 /** `herdr-bridge update [--force]`. */
 export async function updateCmd(rest: string[]): Promise<number> {
   if (/^bun(\.exe)?$/i.test(path.basename(process.execPath))) {
-    console.error('Hãy chạy "update" từ file herdr-bridge đã biên dịch, không phải qua bun.');
+    console.error('Run "update" from the compiled herdr-bridge binary, not through bun.');
     return 1;
   }
   const repo = process.env.HERDR_BRIDGE_REPO || DEFAULT_REPO;
@@ -66,28 +66,28 @@ export async function updateCmd(rest: string[]): Promise<number> {
   try {
     latest = await latestVersion(repo);
   } catch (e) {
-    console.error(`Không kiểm tra được bản mới: ${e instanceof Error ? e.message : e}`);
+    console.error(`Could not check for a new version: ${e instanceof Error ? e.message : e}`);
     return 1;
   }
   if (!latest) {
-    console.error(`Không đọc được bản mới nhất từ github.com/${repo}/releases.`);
+    console.error(`Could not read the latest version from github.com/${repo}/releases.`);
     return 1;
   }
   if (!force && !isNewer(latest, VERSION)) {
-    console.log(`Đã là bản mới nhất (v${VERSION}).`);
+    console.log(`Already up to date (v${VERSION}).`);
     return 0;
   }
-  console.log(`Cập nhật herdr-bridge v${VERSION} -> v${latest}`);
+  console.log(`Updating herdr-bridge v${VERSION} -> v${latest}`);
   const c = installerCommand(process.platform, process.execPath, repo);
   const env = { ...process.env, ...c.env };
   if (c.detached) {
     const p = Bun.spawn([c.cmd, ...c.args], { env, stdio: ['ignore', 'ignore', 'ignore'], detached: true });
     p.unref();
-    console.log('Đang cài trong nền; bridge sẽ tự khởi động lại sau ít giây. Kiểm tra: herdr-bridge version');
+    console.log('Installing in the background; the bridge restarts in a few seconds. Check with: herdr-bridge version');
     return 0;
   }
   const p = Bun.spawn([c.cmd, ...c.args], { env, stdio: ['ignore', 'inherit', 'inherit'] });
   const code = await p.exited;
-  if (code !== 0) console.error(`Cài bản mới thất bại (exit ${code}).`);
+  if (code !== 0) console.error(`Update failed (exit ${code}).`);
   return code;
 }

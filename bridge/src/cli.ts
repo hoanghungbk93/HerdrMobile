@@ -28,7 +28,7 @@ export function pairUrl(host: string, port: number, secret: string, machineName:
 /** "482913" -> "482 913". */
 export const splitCode = (code: string): string => `${code.slice(0, 3)} ${code.slice(3)}`;
 
-export const codeLine = (code: string): string => `Mã ghép: ${splitCode(code)} · hết hạn sau 5 phút`;
+export const codeLine = (code: string): string => `Pairing code: ${splitCode(code)} · expires in 5 minutes`;
 
 export function parseArgs(argv: string[]): { cmd: string | undefined; rest: string[]; port: number } {
   const rest: string[] = [];
@@ -146,19 +146,19 @@ export async function daemon(
 }
 
 const notResponding = (port: number) =>
-  console.error(`Bridge trên cổng ${port} không phản hồi; không sửa devices.json. Thử lại sau.`);
+  console.error(`The bridge on port ${port} is not responding; devices.json was left unchanged. Try again later.`);
 
 /** 403 from a /local route: the key in local.key is not the running daemon's (another data dir / another user). */
 const keyRejected = (port: number) =>
   console.error(
-    `Bridge trên cổng ${port} từ chối khoá quản trị trong ${path.join(DATA_DIR, 'local.key')} ` +
-      '(bridge đó chạy với thư mục dữ liệu hoặc user khác?). Khởi động lại bridge rồi thử lại.',
+    `The bridge on port ${port} rejected the admin key in ${path.join(DATA_DIR, 'local.key')} ` +
+      '(is it running with a different data folder or user?). Restart the bridge and try again.',
   );
 
 interface DeviceRow { id: string; name: string; createdAt: number; lastSeenAt: number; connected?: number }
 
 function printDevices(rows: DeviceRow[]): void {
-  if (rows.length === 0) return console.log('Chưa có thiết bị nào được ghép.');
+  if (rows.length === 0) return console.log('No devices paired yet.');
   for (const d of rows) {
     const seen = new Date(d.lastSeenAt).toISOString();
     console.log(`${d.id}  ${d.name}  last seen ${seen}${d.connected ? `  (online x${d.connected})` : ''}`);
@@ -172,19 +172,19 @@ async function pair(port: number): Promise<number> {
     return 1;
   }
   if (typeof res === 'string' || !res.ok) {
-    console.error(`Bridge chưa chạy trên cổng ${port}. Chạy "start" trước.`);
+    console.error(`The bridge is not running on port ${port}. Run "start" first.`);
     return 1;
   }
   const p = (await res.json()) as { code: string; secret: string; machineName: string };
   const settings = readSettings();
   const host = settings.host ?? tailscaleAddresses().find((a) => !a.includes(':'));
   if (!host) {
-    console.warn('Cảnh báo: không thấy địa chỉ Tailscale, dùng 127.0.0.1 (điện thoại sẽ không kết nối được).');
+    console.warn('Warning: no Tailscale address found, using 127.0.0.1 (the phone will not be able to connect).');
     if (isWsl()) {
-      console.warn('Đang chạy trong WSL: cho bridge nghe trên mọi địa chỉ và ghi địa chỉ Tailscale của Windows vào mã QR:');
+      console.warn('Running in WSL: make the bridge listen on all addresses and put the Windows Tailscale address in the QR code:');
       console.warn('  herdr-bridge config listen all');
-      console.warn('  herdr-bridge config host <IP Tailscale của Windows, vd 100.x.y.z>');
-      console.warn('rồi chuyển cổng 7420 từ Windows vào WSL. Xem: https://hoanghungbk93.github.io/HerdrMobile/#wsl');
+      console.warn('  herdr-bridge config host <Windows Tailscale IP, e.g. 100.x.y.z>');
+      console.warn('then forward port 7420 from Windows into WSL. See: https://hoanghungbk93.github.io/HerdrMobile/#wsl');
     }
   }
   const url = pairUrl(host ?? '127.0.0.1', port, p.secret, p.machineName);
@@ -205,7 +205,7 @@ async function devicesCmd(port: number): Promise<number> {
   }
   if (res !== 'no-daemon' && res.ok) printDevices((await res.json()) as DeviceRow[]);
   else {
-    console.log(`(đọc trực tiếp devices.json vì không có bridge nào chạy trên cổng ${port})`);
+    console.log(`(read devices.json directly: no bridge is running on port ${port})`);
     printDevices(new DeviceStore(DATA_DIR).list());
   }
   return 0;
@@ -226,17 +226,17 @@ async function revoke(port: number, id: string | undefined): Promise<number> {
       keyRejected(port);
       return 1;
     }
-    if (res.status === 204) console.log(`Đã thu hồi ${id}.`);
-    else if (res.status === 404) console.error(`Không tìm thấy thiết bị ${id}.`);
-    else console.error(`Lỗi ${res.status}`);
+    if (res.status === 204) console.log(`Revoked ${id}.`);
+    else if (res.status === 404) console.error(`Device ${id} not found.`);
+    else console.error(`Error ${res.status}`);
     return res.status === 204 ? 0 : 1;
   }
-  console.log(`(sửa trực tiếp devices.json vì không có bridge nào chạy trên cổng ${port})`);
+  console.log(`(edited devices.json directly: no bridge is running on port ${port})`);
   if (new DeviceStore(DATA_DIR).revoke(id)) {
-    console.log(`Đã thu hồi ${id}.`);
+    console.log(`Revoked ${id}.`);
     return 0;
   }
-  console.error(`Không tìm thấy thiết bị ${id}.`);
+  console.error(`Device ${id} not found.`);
   return 1;
 }
 
@@ -247,7 +247,7 @@ async function status(port: number): Promise<number> {
     return 1;
   }
   if (typeof res === 'string' || !res.ok) {
-    console.log(`Bridge: không chạy (cổng ${port})`);
+    console.log(`Bridge: not running (port ${port})`);
     return 1;
   }
   const s = (await res.json()) as {
@@ -259,12 +259,12 @@ async function status(port: number): Promise<number> {
     devices: number;
     sockets: number;
   };
-  console.log(`Bridge: đang chạy (${s.machineName}), cổng ${s.port}`);
-  console.log(`Tailscale: ${s.tailscale?.length ? s.tailscale.join(', ') : 'chưa có địa chỉ'}`);
-  console.log(`Đang lắng nghe: ${s.listening?.join(', ') ?? '?'}`);
-  if (s.sessions.length === 0) console.log('herdr: không có phiên nào đang chạy');
+  console.log(`Bridge: running (${s.machineName}), port ${s.port}`);
+  console.log(`Tailscale: ${s.tailscale?.length ? s.tailscale.join(', ') : 'no address yet'}`);
+  console.log(`Listening on: ${s.listening?.join(', ') ?? '?'}`);
+  if (s.sessions.length === 0) console.log('herdr: no running sessions');
   for (const x of s.sessions) console.log(`herdr "${x.session}": ${x.online ? 'online' : 'offline'}, ${x.panes} pane`);
-  console.log(`Thiết bị đã ghép: ${s.devices}, đang kết nối: ${s.sockets}`);
+  console.log(`Paired devices: ${s.devices}, connected: ${s.sockets}`);
   return 0;
 }
 
@@ -272,24 +272,24 @@ function configCmd(args: string[]): number {
   const s = readSettings();
   const [key, value] = args;
   if (!key) {
-    console.log(`listen: ${s.listen ?? 'tailscale'}  (tailscale = 127.0.0.1 + địa chỉ Tailscale; all = 0.0.0.0)`);
-    console.log(`host:   ${s.host ?? 'auto'}  (địa chỉ ghi vào mã QR; auto = IP Tailscale của máy này)`);
+    console.log(`listen: ${s.listen ?? 'tailscale'}  (tailscale = 127.0.0.1 + Tailscale addresses; all = 0.0.0.0)`);
+    console.log(`host:   ${s.host ?? 'auto'}  (address put in the QR code; auto = this machine's Tailscale IP)`);
     return 0;
   }
   if (key === 'listen' && (value === 'all' || value === 'tailscale')) {
     writeSettings({ ...s, listen: value === 'all' ? 'all' : undefined });
-    console.log(`Đã đặt listen = ${value}. Khởi động lại bridge để áp dụng: herdr-bridge install`);
+    console.log(`Set listen = ${value}. Restart the bridge to apply it: herdr-bridge install`);
     if (value === 'all')
-      console.log('Lưu ý: bridge nhận kết nối từ mọi mạng máy này nối tới; tự giới hạn bằng tường lửa nếu cần.');
+      console.log('Note: the bridge now accepts connections from every network this machine is on; restrict it with a firewall if needed.');
     return 0;
   }
   if (key === 'host' && value) {
     if (value === 'auto') writeSettings({ ...s, host: undefined });
     else if (!validHost(value)) {
-      console.error(`Địa chỉ không hợp lệ: ${value}`);
+      console.error(`Invalid address: ${value}`);
       return 2;
     } else writeSettings({ ...s, host: value });
-    console.log(`Đã đặt host = ${value}. Chạy lại herdr-bridge pair để lấy mã QR mới.`);
+    console.log(`Set host = ${value}. Run herdr-bridge pair again for a new QR code.`);
     return 0;
   }
   console.error('Usage: herdr-bridge config [listen all|tailscale] [host <ip>|auto]');
@@ -300,21 +300,21 @@ async function serviceCmd(cmd: 'install' | 'uninstall'): Promise<number> {
   try {
     if (cmd === 'install') {
       if (/^bun(\.exe)?$/i.test(path.basename(process.execPath))) {
-        console.error('Hãy chạy "install" từ file herdr-bridge đã biên dịch, không phải qua bun.');
+        console.error('Run "install" from the compiled herdr-bridge binary, not through bun.');
         return 1;
       }
       const r = await installService();
-      console.log(`Đã đăng ký tự khởi động: ${process.execPath} start (log: ${logPath()})`);
+      console.log(`Autostart registered: ${process.execPath} start (log: ${logPath()})`);
       if (r.mode === 'runkey')
-        console.log('(Không có quyền admin nên dùng khoá Run của user thay cho Task Scheduler; vẫn tự chạy khi đăng nhập.)');
+        console.log('(No admin rights, so the per-user Run key is used instead of Task Scheduler; it still starts at login.)');
       if (r.firewall === false)
         console.log(
-          'Cảnh báo: chưa có luật tường lửa cho cổng bridge, điện thoại sẽ không kết nối được. Mở PowerShell (Admin) và chạy:\n' +
+          'Warning: no firewall rule for the bridge port, so the phone cannot connect. Open PowerShell (Admin) and run:\n' +
             '  netsh advfirewall firewall add rule name=herdr-bridge dir=in action=allow protocol=TCP localport=7420 profile=any',
         );
     } else {
       await uninstallService();
-      console.log(`Đã gỡ tự khởi động. Dữ liệu trong ${DATA_DIR} được giữ nguyên.`);
+      console.log(`Autostart removed. Data in ${DATA_DIR} is kept.`);
     }
     return 0;
   } catch (e) {
