@@ -16,11 +16,14 @@ export function mimeFor(name: string): string {
   return MIME[ext] ?? 'application/octet-stream';
 }
 
-/** A path as the terminal printed it → absolute: `/x`, `~/x`, or relative to the pane's cwd (null without one). */
+/**
+ * A path as the terminal printed it → absolute: absolute for this OS (`/x`, `C:\\x`), `~/x` (or `~\\x`), or relative
+ * to the pane's cwd (null without one).
+ */
 export function resolveUserPath(p: string, cwd: string | null, home = os.homedir()): string | null {
-  if (p.startsWith('/')) return path.normalize(p);
-  if (p.startsWith('~/')) return path.join(home, p.slice(2));
-  return cwd ? path.join(cwd, p) : null;
+  if (/^~[\\/]/.test(p)) return path.join(home, p.slice(2));
+  if (path.isAbsolute(p)) return path.resolve(p);
+  return cwd ? path.resolve(cwd, p) : null;
 }
 
 const fail = (status: number, code: string) => Response.json({ code }, { status });

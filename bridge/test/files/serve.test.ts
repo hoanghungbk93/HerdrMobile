@@ -1,17 +1,26 @@
 import { afterAll, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, openSync, closeSync, ftruncateSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
+import path from 'node:path';
 import { FILE_MAX_BYTES, mimeFor, resolveUserPath, serveFile } from '../../src/files/serve';
 
 const dir = mkdtempSync(`${os.tmpdir()}/hm-file-`);
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-test('resolveUserPath: absolute, ~/ and relative to the pane cwd', () => {
-  expect(resolveUserPath('/a/b.txt', '/w', '/h')).toBe('/a/b.txt');
-  expect(resolveUserPath('~/a.txt', '/w', '/h')).toBe('/h/a.txt');
-  expect(resolveUserPath('src/x.ts', '/w', '/h')).toBe('/w/src/x.ts');
-  expect(resolveUserPath('./x.ts', '/w', '/h')).toBe('/w/x.ts');
-  expect(resolveUserPath('x.ts', null, '/h')).toBeNull();
+test('resolveUserPath: absolute, ~/ and relative to the pane cwd (with this OS path rules)', () => {
+  const root = path.resolve('/');
+  const w = path.join(root, 'w');
+  const h = path.join(root, 'h');
+  expect(resolveUserPath(path.join(root, 'a', 'b.txt'), w, h)).toBe(path.join(root, 'a', 'b.txt'));
+  expect(resolveUserPath('~/a.txt', w, h)).toBe(path.join(h, 'a.txt'));
+  expect(resolveUserPath('src/x.ts', w, h)).toBe(path.join(w, 'src', 'x.ts'));
+  expect(resolveUserPath('./x.ts', w, h)).toBe(path.join(w, 'x.ts'));
+  expect(resolveUserPath('x.ts', null, h)).toBeNull();
+});
+
+test.skipIf(process.platform !== 'win32')('Windows: drive paths are absolute, ~\\ is home', () => {
+  expect(resolveUserPath('C:\\Users\\me\\a.png', 'D:\\w', 'C:\\h')).toBe('C:\\Users\\me\\a.png');
+  expect(resolveUserPath('~\\a.png', 'D:\\w', 'C:\\h')).toBe('C:\\h\\a.png');
 });
 
 test('mimeFor by extension', () => {
