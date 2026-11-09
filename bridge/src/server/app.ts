@@ -3,6 +3,7 @@ import { rm } from 'node:fs/promises';
 import type { Server, ServerWebSocket, WebSocketHandler } from 'bun';
 import type { ApprovalInfo, ClientMsg, PushPrefs, ServerMsg, SessionSnapshot } from '@herdr-mobile/protocol';
 import { parseApproval } from '../approval/parse';
+import { resolveUserPath, serveFile } from '../files/serve';
 import { LOCAL_KEY_HEADER, localKeyMatches } from '../auth/localKey';
 import type { Pairing } from '../auth/pairing';
 import type { DeviceStore } from '../auth/store';
@@ -346,6 +347,20 @@ export function createApp(deps: AppDeps): App {
     }
   }
 
+  /** A file the terminal named, for the phone to view or save (path as printed: absolute, ~/ or relative to the pane cwd). */
+  async function file(url: URL): Promise<Response> {
+    const session = url.searchParams.get('session');
+    const paneId = url.searchParams.get('paneId');
+    const p = url.searchParams.get('path');
+    if (!session || !paneId || !p) return fail(400, 'bad_request');
+    const cwd = hub.sessions().find((s) => s.session === session)?.panes.find((x) => x.paneId === paneId)?.cwd ?? null;
+    const abs = resolveUserPath(p, cwd);
+    if (!abs) return fail(404, 'not_found');
+    const res = await serveFile(abs);
+    console.log(`[app] file ${res.status} ${abs} ${res.headers.get('content-length') ?? ''}`);
+    return res;
+  }
+
   async function approval(url: URL): Promise<Response> {
     const session = url.searchParams.get('session');
     const paneId = url.searchParams.get('paneId');
@@ -470,6 +485,8 @@ export function createApp(deps: AppDeps): App {
         return rpc(req);
       case 'GET /history':
         return history(url);
+      case 'GET /file':
+        return file(url);
       case 'GET /approval':
         return approval(url);
       case 'POST /approve':

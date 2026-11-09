@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'bun:test';
 import { EventEmitter } from 'node:events';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { ServerMsg, SessionSnapshot } from '@herdr-mobile/protocol';
@@ -44,6 +44,7 @@ class FakeHerdr {
 class FakeHub extends EventEmitter {
   herdr = new FakeHerdr();
   status: SessionSnapshot['panes'][number]['status'] = 'blocked';
+  cwd = '/x';
   sessions(): SessionSnapshot[] {
     return [
       {
@@ -52,7 +53,7 @@ class FakeHub extends EventEmitter {
         workspaces: [{ id: 'w1', label: 'hana' }],
         tabs: [{ id: 'w1:t1', workspaceId: 'w1', label: 'main' }],
         panes: [
-          { session: 's1', paneId: PANE, tabId: 'w1:t1', workspaceId: 'w1', agent: 'claude', label: null, status: this.status, cwd: '/x', revision: 7 },
+          { session: 's1', paneId: PANE, tabId: 'w1:t1', workspaceId: 'w1', agent: 'claude', label: null, status: this.status, cwd: this.cwd, revision: 7 },
         ],
       },
     ];
@@ -561,4 +562,28 @@ test('concurrent approves with the same hash: exactly one send_keys, the other 4
   ]);
   expect([r1.status, r2.status].sort()).toEqual([204, 409]);
   expect(c.hub.herdr.calledWith('agent.send_keys')).toHaveLength(1);
+});
+
+// ---- files ----------------------------------------------------------------
+
+test('GET /file serves a path relative to the pane cwd, and absolute ones', async () => {
+  const c = setup();
+  const cwd = mkdtempSync(path.join(tmpdir(), 'hm-cwd-'));
+  cleanups.push(() => rmSync(cwd, { recursive: true, force: true }));
+  c.hub.cwd = cwd;
+  mkdirSync(path.join(cwd, 'out'));
+  writeFileSync(path.join(cwd, 'out', 'kết quả.txt'), 'xin chào');
+  const { token } = await pair(c);
+  const rel = await call(c, token, 'GET', `/file?session=s1&paneId=${encodeURIComponent(PANE)}&path=${encodeURIComponent('out/kết quả.txt')}`);
+  expect(rel.status).toBe(200);
+  expect(await rel.text()).toBe('xin chào');
+  const abs = await call(c, token, 'GET', `/file?session=s1&paneId=${encodeURIComponent(PANE)}&path=${encodeURIComponent(path.join(cwd, 'out', 'kết quả.txt'))}`);
+  expect(abs.status).toBe(200);
+  expect((await call(c, token, 'GET', `/file?session=s1&paneId=${encodeURIComponent(PANE)}&path=nope.txt`)).status).toBe(404);
+  expect((await call(c, token, 'GET', `/file?session=s1&paneId=${encodeURIComponent(PANE)}`)).status).toBe(400);
+});
+
+test('GET /file needs the device token', async () => {
+  const c = setup();
+  expect((await fetch(`${c.url}/file?session=s1&paneId=x&path=/etc/hosts`)).status).toBe(401);
 });
